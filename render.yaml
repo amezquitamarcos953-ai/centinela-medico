@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: centinela-medico-marcos
+    env: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: python backend/app.py
+    envVars:
+      - key: CENTINELA_INSTANCE_ID
+        value: doctor-marcos-001
+      - key: PORT
+        value: 5000

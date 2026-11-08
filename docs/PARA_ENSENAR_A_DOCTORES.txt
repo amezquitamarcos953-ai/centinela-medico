@@ -1,0 +1,16 @@
+CENTINELA MÉDICO - Para enseñar a doctores
+
+1. Abrir la demo en el navegador (link que te pasé)
+2. Crear cuenta de médico (contraseña fuerte)
+3. Crear 1 paciente de ejemplo en vivo
+4. Hacerle chequeo automático -> mostrar probabilidades y urgencia
+5. Subir un ultrasonido/radiografía -> poner Interpretación y Estado Anormal -> mostrar alerta roja
+6. Crear receta y descargarla
+7. Agendar cita
+8. Explicar: Cada doctor tiene su propia copia independiente. Tus pacientes no se ven en la copia del otro doctor.
+
+Preguntas que suelen hacer los doctores:
+- ¿Se puede subir ultrasonido/radiografía? Sí, en su sección, con interpretación.
+- ¿Da medicamentos solo? No, los escribe el médico.
+- ¿Funciona en teléfono y computadora? Sí, web.
+- ¿Mis datos se mezclan? No, cada doctor su instancia.

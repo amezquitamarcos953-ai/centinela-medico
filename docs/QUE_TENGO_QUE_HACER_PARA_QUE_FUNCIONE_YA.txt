@@ -1,0 +1,32 @@
+CENTINELA MÉDICO - QUÉ TIENES QUE HACER PARA QUE FUNCIONE YA
+
+OPCIÓN MÁS FÁCIL Y GRATIS - RENDER (15 minutos)
+
+1. Descarga el archivo centinela-medico-final.zip en tu computadora y descomprímelo.
+2. Crea cuenta gratis en github.com con tu correo.
+3. En GitHub pulsa New Repository, nombre: centinela-medico, público, Create.
+4. Pulsa Upload files, sube TODOS los archivos de la carpeta descomprimida.
+5. Crea cuenta gratis en render.com con el mismo correo (puedes entrar con GitHub).
+6. En Render pulsa New + -> Web Service -> Conecta tu repositorio centinela-medico.
+7. En Build Command escribe: pip install -r backend/requirements.txt
+   En Start Command escribe: python backend/app.py
+   En Environment Variable agrega: CENTINELA_INSTANCE_ID = doctor-marcos-001
+8. Pulsa Create Web Service. Espera 2-3 minutos.
+9. Render te dará un link como: https://centinela-medico-marcos.onrender.com
+   ESE ES TU LINK REAL. Ábrelo en tu computadora y en tu teléfono. Ya funciona.
+
+QUÉ HACER DESPUÉS:
+- Entra con Crear cuenta de médico, con contraseña fuerte.
+- Agrega 1 paciente de prueba.
+- Hazle un chequeo, una receta, una cita.
+- Guarda tu link en favoritos.
+
+PARA OTRO DOCTOR:
+No le pases tu link. Se repiten los pasos 3-8 con otro nombre: centinela-medico-doctor-juan, y CENTINELA_INSTANCE_ID = doctor-juan-002. Así queda independiente.
+
+SI NO QUIERES HACERLO TÚ SOLO:
+Dime "ayúdame a subirlo" y te guío pantalla por pantalla.
+
+IMPORTANTE:
+Esta versión ya guarda de verdad en servidor, no es la demo del chat.
+Sigue siendo ayuda diagnóstica, no diagnóstico certificado. El médico pone el diagnóstico final.
