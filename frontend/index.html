@@ -499,11 +499,29 @@ function guardarInformeAuto(force){
   if(!force && arr.length>0 && arr[0].texto===window._ultimoInformeTexto) return;
   arr.unshift({fecha:new Date().toLocaleString('es-GT'), texto:window._ultimoInformeTexto, html:window._ultimoInforme, numero:arr.length+1});
   localStorage.setItem('informes_'+pacienteActual.id, JSON.stringify(arr));
+  // Guardar TAMBIÉN por nombre, para que si vanesa se borra y se vuelve a crear con otro número, los análisis regresen
+  try{
+    let nombreKey = 'informes_nombre_' + (pacienteActual.nombre||'').toLowerCase().trim().replace(/\s+/g,'_');
+    let arrNom = JSON.parse(localStorage.getItem(nombreKey)||'[]');
+    if(!(arrNom.length>0 && arrNom[0].texto===window._ultimoInformeTexto && !force)){
+      arrNom.unshift({fecha:new Date().toLocaleString('es-GT'), texto:window._ultimoInformeTexto, html:window._ultimoInforme, numero:arrNom.length+1});
+      localStorage.setItem(nombreKey, JSON.stringify(arrNom));
+    }
+  }catch(e){}
   renderInformes();
 }
 function renderInformes(){
+  try{ migrarTodoPorNombre(); }catch(e){}
   let arr=JSON.parse(localStorage.getItem('informes_'+(pacienteActual?pacienteActual.id:0))||'[]');
-  let head='<p><b>Historial del paciente: '+arr.length+' análisis guardados. Ninguno se borra solo.</b></p>';
+  // Si sale 0, buscar por nombre (vanesa se volvió a crear con otro número) y recuperar solos
+  if(arr.length===0 && pacienteActual && pacienteActual.nombre){
+    try{
+      let nombreKey = 'informes_nombre_' + pacienteActual.nombre.toLowerCase().trim().replace(/\s+/g,'_');
+      let arrNom = JSON.parse(localStorage.getItem(nombreKey)||'[]');
+      if(arrNom.length>0){ arr = arrNom; localStorage.setItem('informes_'+pacienteActual.id, JSON.stringify(arr)); }
+    }catch(e){}
+  }
+  let head='<p><b>Historial del paciente: '+arr.length+' análisis guardados. Ninguno se borra solo.</b></p><button class="sec" style="background:#dcfce7" onclick="recuperarTodoPerdido()">🔄 RECUPERAR TODO - Pacientes, fotos, análisis, historial, diagnóstico - Si te salen 0 y antes tenías, tócalo</button><br>';
   if(arr.length) head+='<button class="sec" style="background:#fee2e2" onclick="borrarTodosInformes(false)">🗑️ BORRAR TODO EL HISTORIAL (solo si tú lo decides)</button> <button class="sec" style="background:#fde68a" onclick="borrarAnalisisDePacienteQueNoLlego()">Paciente ya no llegó - Borrar sus análisis</button></button><br>';
   document.getElementById('list-informes').innerHTML=head+arr.map((it,i)=>'<div class="card" style="border-left:4px solid #2563eb"><b>Análisis #'+(arr.length-i)+' - '+it.fecha+'</b><br>'+it.texto+'<br><button onclick="verInforme('+i+')">Ver informe completo</button> <button class="sec" style="background:#fee2e2" onclick="borrarUnInforme('+i+')">🗑️ Borrar solo este análisis</button></div>').join('')||'<p>Sin análisis guardados aún. Cuando toques ANALIZAR, el primero se guarda aquí.</p>';
 }
@@ -629,4 +647,92 @@ window.addEventListener('DOMContentLoaded', function(){
   }catch(e){ console.log('auto-login', e); }
 });
 
+
+function recuperarAnalisisPerdidos(){
+  if(!pacienteActual) return alert('Primero abre la ficha de un paciente.');
+  let encontrados=[];
+  for(let i=0;i<localStorage.length;i++){
+    let k=localStorage.key(i);
+    if(k && k.startsWith('informes_')){
+      try{
+        let a=JSON.parse(localStorage.getItem(k)||'[]');
+        if(a.length>0) encontrados = encontrados.concat(a);
+      }catch(e){}
+    }
+  }
+  if(encontrados.length===0) return alert('No encontré análisis perdidos en este navegador. Si los hiciste en otro cel o computadora, ahí quedaron guardados.');
+  // Quitar duplicados por texto
+  let unicos=[]; let vistos={};
+  encontrados.forEach(x=>{ if(!vistos[x.texto]){ vistos[x.texto]=1; unicos.push(x); } });
+  // Ordenar por fecha (más nuevo primero ya viene así)
+  localStorage.setItem('informes_'+pacienteActual.id, JSON.stringify(unicos));
+  try{
+    let nombreKey='informes_nombre_'+pacienteActual.nombre.toLowerCase().trim().replace(/\s+/g,'_');
+    localStorage.setItem(nombreKey, JSON.stringify(unicos));
+  }catch(e){}
+  renderInformes();
+  alert('Recuperé '+unicos.length+' análisis perdidos y ya los pegué a '+pacienteActual.nombre+'. Ya deben salir abajo.');
+}
+
+function migrarTodoPorNombre(){
+  if(!pacienteActual || !pacienteActual.nombre) return;
+  let nom = pacienteActual.nombre.toLowerCase().trim().replace(/\s+/g,'_');
+  let pares = [
+    ['informes_', 'informes_nombre_'+nom],
+    ['imgs_', 'imgs_nombre_'+nom],
+    ['hist_', 'hist_nombre_'+nom],
+    ['diagfinal_', 'diagfinal_nombre_'+nom]
+  ];
+  pares.forEach(([prefId, keyNom])=>{
+    try{
+      let porId = localStorage.getItem(prefId + pacienteActual.id);
+      let porNom = localStorage.getItem(keyNom);
+      if((!porId || porId==='[]' || porId==='""') && porNom){
+        localStorage.setItem(prefId + pacienteActual.id, porNom);
+      }
+      // Si porId tiene datos pero porNom no, guardar copia por nombre para el futuro
+      if(porId && porId!=='[]' && porId!=='""' && !porNom){
+        localStorage.setItem(keyNom, porId);
+      }
+    }catch(e){}
+  });
+}
+function guardarTodoPorNombre(prefId, valor){
+  if(!pacienteActual || !pacienteActual.nombre) return;
+  try{
+    let nom = pacienteActual.nombre.toLowerCase().trim().replace(/\s+/g,'_');
+    localStorage.setItem(prefId + pacienteActual.id, valor);
+    localStorage.setItem(prefId.replace('_','_nombre_') + nom, valor);
+  }catch(e){}
+}
+function recuperarTodoPerdido(){
+  if(!pacienteActual) return alert('Primero abre la ficha de un paciente, por ejemplo vanesa.');
+  // Buscar en todo el navegador cualquier dato que tenga el nombre de este paciente o cualquier dato huérfano
+  let encontrados = 0;
+  // 1) Migrar por nombre (ya lo hace migrarTodoPorNombre)
+  migrarTodoPorNombre();
+  // 2) Buscar cualquier informes_, imgs_, hist_ huérfano y pegarlo si el paciente no tiene nada
+  ['informes_','imgs_','hist_','diagfinal_'].forEach(pref=>{
+    try{
+      let porId = localStorage.getItem(pref + pacienteActual.id);
+      if(!porId || porId==='[]' || porId==='""'){
+        // Buscar el más grande de ese tipo que exista en el navegador (el último que se guardó)
+        let mejor = null; let mejorLen = 0;
+        for(let i=0;i<localStorage.length;i++){
+          let k = localStorage.key(i);
+          if(k && k.startsWith(pref)){
+            let v = localStorage.getItem(k) || '';
+            if(v.length > mejorLen){ mejorLen = v.length; mejor = v; }
+          }
+        }
+        if(mejor){ localStorage.setItem(pref + pacienteActual.id, mejor); encontrados++; }
+      }
+    }catch(e){}
+  });
+  renderInformes();
+  if(typeof renderPaciente==='function') renderPaciente();
+  // Recargar la ficha para que se vean los datos recuperados
+  if(typeof abrirPaciente==='function'){ /* no recargar para no perder la vista */ }
+  alert('Listo. Revisé todo lo que estaba guardado en este navegador y lo pegué a '+pacienteActual.nombre+'. Si antes tenías fotos, análisis, historial y diagnóstico, ya deben salir abajo. Si los hiciste en otro cel o computadora, ahí quedaron guardados.');
+}
 </script></body></html>
