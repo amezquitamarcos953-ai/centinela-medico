@@ -32,18 +32,18 @@ function llenarDesdeTexto(texto){
   let mapa=[['lab-hb',['hemoglobina','hb']],['lab-hto',['hematocrito']],['lab-vcm',['vcm']],['lab-leuco',['leucocitos','wbc']],['lab-neu',['neutrofilos']],['lab-lin',['linfocitos']],['lab-mono',['monocitos']],['lab-eos',['eosinofilos']],['lab-pla',['plaquetas','plt']],['lab-mpv',['mpv']],['lab-gluc',['glucosa']],['lab-urea',['urea']],['lab-crea',['creatinina']],['lab-tgo',['tgo','ast']],['lab-tgp',['tgp','alt']],['lab-col',['colesterol total']],['lab-ldl',['ldl']],['lab-hdl',['hdl']],['lab-trig',['trigliceridos']],['lab-tsh',['tsh']]];
   let n=0;
   mapa.forEach(([id,pats])=>{let v=buscarValor(texto,pats); if(v!==null){let el=document.getElementById(id); if(el && !el.value){el.value=v; n++;}}});
+  llenarOrinaDesdeTexto(texto); llenarHecesYCultivos(texto);
   document.getElementById('ocr-msg').textContent = n===0 ? 'La foto se leyó pero no encontré los números. Revisa el texto abajo y escribe a mano.' : 'Listo. Llené '+n+' valores solos. Revisa cada uno. Si uno está mal, bórralo y escribe el correcto. Luego toca ANALIZAR.';
 }
 
 function borrarTodosValores(){
-  if(!confirm('¿Borrar todos los valores escritos?')) return;
+  if(!confirm('¿Borrar los valores que escribiste para hacer un nuevo análisis? El historial de abajo NO se borra.')) return;
   document.querySelectorAll('#p-diagnosticador input[type="number"]').forEach(i=>i.value='');
   document.querySelectorAll('#p-diagnosticador select').forEach(s=>{if(s.id && s.id.startsWith('lab-or')) s.value='';});
-  document.getElementById('informe-diag').innerHTML='';
+  document.getElementById('informe-diag').innerHTML='<p style="background:#eff6ff;padding:8px;border-radius:8px">Valores borrados. Escribe los nuevos valores del siguiente examen. El historial de abajo se queda guardado.</p>';
   window._ultimoInforme=null; window._ultimoInformeTexto='';
-  let msg=document.getElementById('ocr-msg'); if(msg) msg.textContent='Valores borrados. Ahora también puedes borrar los informes guardados de abajo si quieres.';
-  // Preguntar si también quiere borrar los informes guardados del examen anterior
-  if(confirm('¿También quieres borrar los INFORMES GUARDADOS del examen anterior que salen abajo? Si le das que SÍ, ya no van a salir. Si le das que NO, se quedan guardados.')){borrarTodosInformes(true);}
+  let msg=document.getElementById('ocr-msg'); if(msg) msg.textContent='Valores borrados para el siguiente examen. El historial NO se borró.';
+}
 }
 function borrarUnInforme(i){
   let arr=JSON.parse(localStorage.getItem('informes_'+pacienteActual.id)||'[]');
@@ -58,6 +58,53 @@ function borrarTodosInformes(silencioso){
   renderInformes();
   if(!silencioso) alert('Informes guardados borrados.');
 }
+
+function llenarOrinaDesdeTexto(texto){
+  let t=texto.toLowerCase();
+  let poner=(id, val)=>{let el=document.getElementById(id); if(el && !el.value) el.value=val;};
+  // Densidad 1.015
+  let mD=t.match(/densidad[^0-9]{0,20}(1\.\d{3}|1\.0\d{2})/); if(mD) poner('lab-or-densidad', mD[1]);
+  // pH 6.0
+  let mPh=t.match(/ph[^0-9]{0,20}([4-9]\.[0-9])/); if(mPh) poner('lab-or-ph', mPh[1]);
+  // Color amarillo
+  if(t.includes('amarillo')) poner('lab-or-color','AMARILLO');
+  if(t.includes('lig. turbio')||t.includes('lig turbio')) poner('lab-or-aspecto','LIG. TURBIO');
+  if(t.includes('transparente') && !t.includes('lig')) poner('lab-or-aspecto','Transparente');
+  // Leucocitos (+) en orina: buscar "leucocitos" seguido de (+) en la misma línea de orina
+  if(t.includes('leucocitos') && t.includes('(+)')) poner('lab-or-leuco-cual','(+)');
+  if(t.includes('bacterias') && t.includes('(+)')) poner('lab-or-bacterias','(+)');
+  if(t.includes('filamentos') && t.includes('(+)')) poner('lab-or-filamentos','(+)');
+  // Células epiteliales 1-3
+  let mCel=t.match(/c[eé]lulas epiteliales[^0-9]{0,20}(\d+\s*-\s*\d+)/); if(mCel) poner('lab-or-celulas', mCel[1]);
+  // Si todo es NEGATIVO, poner Negativo en los select vacíos
+  if(t.includes('nitritos') && t.includes('negativo')) poner('lab-or-nit','Negativo');
+  if(t.includes('proteinas') && t.includes('negativo')) poner('lab-or-prot','Negativo');
+}
+
+function llenarHecesYCultivos(texto){
+  let t=texto.toLowerCase();
+  let poner=(id,val)=>{let el=document.getElementById(id); if(el && !el.value) el.value=val;};
+  if(t.includes('coprol')||t.includes('heces')||t.includes('examen de heces')){
+    if(t.includes('moco') && t.includes('(+)')) poner('lab-heces-moco','(+)');
+    if(t.includes('sangre') && t.includes('(+)')) poner('lab-heces-sangre','(+)');
+    if(t.includes('parasit') && t.includes('positivo')) poner('lab-heces-parasitos','Positivo');
+    if(t.includes('parasit') && t.includes('negativo')) poner('lab-heces-parasitos','Negativo');
+    if(t.includes('giardia')) poner('lab-heces-parasito-tipo','Giardia');
+    if(t.includes('ascaris')||t.includes('áscaris')) poner('lab-heces-parasito-tipo','Áscaris');
+    if(t.includes('ameba')) poner('lab-heces-parasito-tipo','Ameba');
+  }
+  if(t.includes('esputo')||t.includes('bk')||t.includes('tuberculosis')){
+    if(t.includes('bk') && t.includes('positivo')) poner('lab-bk','Positivo');
+    if(t.includes('bk') && t.includes('negativo')) poner('lab-bk','Negativo');
+  }
+  if(t.includes('cultivo')){
+    if(t.includes('e. coli')||t.includes('e coli')) poner('lab-cultivo-germen','E. coli');
+    if(t.includes('streptococcus')) poner('lab-cultivo-germen','Streptococcus');
+    if(t.includes('candida')) poner('lab-cultivo-germen','Candida');
+    if(t.includes('positivo')) poner('lab-cultivo-resultado','Positivo');
+    if(t.includes('negativo')) poner('lab-cultivo-resultado','Negativo');
+  }
+}
 </script></head>
 <body><div class="top"><b>CENTINELA MÉDICO</b> <span id="top-medico"></span> <span style="float:right" id="top-instance"></span></div>
 <div class="wrap">
@@ -70,7 +117,7 @@ function borrarTodosInformes(silencioso){
 <div id="tab-pacientes"><input id="busc" placeholder="Buscar paciente por nombre" oninput="renderPacientes()"><div style="margin:8px 0"><button onclick="filtrar('TODOS')">Todos</button><button class="sec" onclick="filtrar('ROJA')">Solo Rojas</button><button class="sec" onclick="filtrar('AMARILLA')">Solo Amarillas</button><button class="sec" onclick="filtrar('VERDE')">Solo Verdes</button><button class="sec" onclick="filtrar('ANORMAL')">Solo Imagen Anormal</button><button class="sec" onclick="filtrar('SIN CHEQUEO')">Sin chequeo</button></div>
 <input id="p-nombre" placeholder="Nombre completo del paciente"><input id="p-edad" type="number" placeholder="Edad"><input id="p-ciudad" placeholder="Ciudad"><input id="p-alergias" placeholder="Alergias"><textarea id="p-antec" placeholder="Antecedentes"></textarea><button onclick="addPaciente()">Agregar nuevo paciente</button><div id="lista-pacientes"></div></div>
 <div id="tab-agenda" class="hidden"><input type="date" id="agenda-fecha"><button onclick="renderAgenda()">Ver citas de ese día</button><div id="lista-citas"></div></div>
-<button class="sec" onclick="logout()">Cerrar sesión</button> <button class="sec" onclick="exportar()">Exportar respaldo JSON</button> <button class="sec" style="background:#fee2e2;color:#991b1b" onclick="borrarTodos()">🗑️ BORRAR TODOS LOS PACIENTES - Empezar en cero</button></div>
+<button class="sec" onclick="logout()">Cerrar sesión</button> <button class="sec" onclick="exportar()">Exportar respaldo JSON</button> <button onclick="document.getElementById('import-file').click()">Importar respaldo</button><input type="file" id="import-file" accept=".json" style="display:none" onchange="importarRespaldo(event)"></button> <button class="sec" style="background:#fee2e2;color:#991b1b" onclick="borrarTodos()">🗑️ BORRAR TODOS LOS PACIENTES - Empezar en cero</button></div>
 </div>
 <div id="view-paciente" class="hidden">
 <div class="card"><button class="sec" onclick="volver()">← Volver a lista</button><h2 id="pac-title"></h2><p id="pac-sub"></p><div id="pac-alerta"></div><div style="background:#fef3c7;padding:12px;border-radius:10px;margin:10px 0"><b>¿Dónde están los exámenes?</b><br>Toca la pestaña <b>Exámenes / Imágenes</b> abajo. Ahí están Laboratorio, Ultrasonidos y Radiografías con subida de foto/PDF y la interpretación del radiólogo. <button onclick="irExamenes()">IR DIRECTO A EXÁMENES / ULTRASONIDOS / RADIOGRAFÍAS</button></div>
@@ -154,7 +201,7 @@ function borrarTodosInformes(silencioso){
 <div><label>Sangre en orina</label><select id="lab-or-sang"><option value="">No se hizo</option><option>Negativo</option><option>Positivo</option></select></div>
 <div><label>Leucocitos en orina por campo (0-5)</label><input id="lab-or-leuco" type="number" step="0.1" placeholder="ej. 2"></div>
 <div><label>Nitritos</label><select id="lab-or-nit"><option value="">No se hizo</option><option>Negativo</option><option>Positivo</option></select></div>
-<div><label>pH orina (4.5-8.0)</label><input id="lab-or-ph" type="number" step="0.1" placeholder="ej. 6.0"></div>
+<div><label>pH orina (4.5-8.0)</label><input id="lab-or-ph" placeholder="pH orina"><input id="lab-or-densidad" placeholder="Densidad orina - ej. 1.015"><input id="lab-or-color" placeholder="Color - ej. AMARILLO"><input id="lab-or-aspecto" placeholder="Aspecto - ej. LIG. TURBIO / Transparente"><select id="lab-or-leuco-cual"><option value="">Leucocitos orina - elige</option><option>Negativo</option><option>(+)</option><option>(++)</option><option>(+++)</option></select><select id="lab-or-bacterias"><option value="">Bacterias - elige</option><option>Negativo</option><option>(+)</option><option>(++)</option><option>(+++)</option></select><input id="lab-or-celulas" placeholder="Células epiteliales - ej. 1-3 /campo"><input id="lab-or-filamentos" placeholder="Filamentos mucosos - ej. (+) / Negativo"><select id="lab-or-cetonas"><option value="">C. Cetónicos - elige</option><option>Negativo</option><option>(+)</option><option>(++)</option></select><select id="lab-or-uro"><option value="">Urobilinógeno - elige</option><option>Normal</option><option>Alto</option><option>Negativo</option></select><select id="lab-or-bili"><option value="">Bilirrubinas orina - elige</option><option>Negativo</option><option>(+)</option><option>(++)</option></select><select id="lab-or-hemog"><option value="">Hemoglobina orina - elige</option><option>Negativo</option><option>(+)</option><option>(++)</option></select type="number" step="0.1" placeholder="ej. 6.0"></div>
 </div>
 <h3>5. OTROS - Si los tiene</h3>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -163,11 +210,45 @@ function borrarTodosInformes(silencioso){
 <div><label>Prueba de embarazo HCG</label><select id="lab-emb"><option value="">No se hizo</option><option>Negativo</option><option>Positivo</option></select></div>
 <div><label>VDRL / VIH / Hepatitis (anotar)</label><input id="lab-sero" placeholder="ej. VDRL negativo"></div>
 </div>
-<button class="sec" style="background:#fee2e2" onclick="borrarTodosValores()">🗑️ BORRAR TODOS LOS VALORES Y EMPEZAR DE NUEVO</button><br><button onclick="analizarLaboratorio()" style="background:#ea580c;font-size:16px;padding:14px 20px">🔍 ANALIZAR EXAMEN COMPLETO</button>
+<button class="sec" style="background:#fee2e2" onclick="borrarTodosValores()">🗑️ BORRAR TODOS LOS VALORES Y EMPEZAR DE NUEVO</button><br><button onclick="analizarLaboratorio()" style="background:#ea580c;font-size:16px;padding:14px 20px">🔍 
+<h3>5. EXAMEN DE HECES - Coprológico</h3>
+<p><small>Igual que orina: color, moco, sangre, parásitos, etc. El lector también entiende (+) y NEGATIVO.</small></p>
+<input id="lab-heces-color" placeholder="Color heces - ej. Café / Amarillo / Verde">
+<select id="lab-heces-consistencia"><option value="">Consistencia - elige</option><option>Formada</option><option>Blanda</option><option>Líquida</option><option>Dura</option></select>
+<select id="lab-heces-moco"><option value="">Moco - elige</option><option>Negativo</option><option>(+)</option><option>(++)</option><option>(+++)</option></select>
+<select id="lab-heces-sangre"><option value="">Sangre en heces - elige</option><option>Negativo</option><option>(+)</option><option>(++)</option><option>Visible</option></select>
+<select id="lab-heces-parasitos"><option value="">Parásitos - elige</option><option>Negativo</option><option>Positivo</option></select>
+<input id="lab-heces-parasito-tipo" placeholder="Qué parásito salió - ej. Giardia / Áscaris / Ameba">
+<input id="lab-heces-huevos" placeholder="Huevos de parásitos - ej. Positivo / Negativo">
+<input id="lab-heces-leuco" placeholder="Leucocitos en heces - ej. 1-2 /campo / Negativo">
+<input id="lab-heces-grasa" placeholder="Grasa en heces - ej. Negativo / (+) ">
+<input id="lab-heces-ph" placeholder="pH heces - ej. 6.5">
+<select id="lab-heces-sangre-oculta"><option value="">Sangre oculta - elige</option><option>Negativo</option><option>Positivo</option></select>
+
+<h3>6. CULTIVOS Y OTROS EXÁMENES PARECIDOS</h3>
+<p><small>Esputo, exudado de garganta, cultivo vaginal, cultivo de herida. Todos se llenan igual.</small></p>
+<select id="lab-cultivo-tipo"><option value="">Tipo de cultivo - elige</option><option>Esputo</option><option>Exudado faríngeo / Garganta</option><option>Cultivo vaginal</option><option>Cultivo de orina</option><option>Cultivo de herida</option><option>Cultivo de sangre / Hemocultivo</option></select>
+<input id="lab-cultivo-germen" placeholder="Qué germen salió - ej. E. coli / Streptococcus / Candida">
+<select id="lab-cultivo-resultado"><option value="">Resultado cultivo - elige</option><option>Negativo</option><option>Positivo</option><option>Contaminada</option></select>
+<input id="lab-cultivo-antibiotico" placeholder="Antibiótico que sí le hace - ej. Amoxicilina / según antibiograma">
+<input id="lab-esputo-color" placeholder="Esputo - Color - ej. Amarillo / Verde / Transparente">
+<select id="lab-esputo-sangre"><option value="">Esputo - Sangre - elige</option><option>Negativo</option><option>(+)</option><option>Visible</option></select>
+<input id="lab-bk" placeholder="BK / Tuberculosis - ej. Negativo / Positivo / (+) ">
+
+<h3>7. OTROS VALORES QUE YA TIENE EL DIAGNOSTICADOR Y A VECES FALTAN</h3>
+<p><small>Estos ya estaban, pero te los dejo juntos para que no los busques.</small></p>
+<input id="lab-hb2" placeholder="Hemoglobina g/dL - ej. 12.5 (mismo que arriba)">
+<input id="lab-hba1c2" placeholder="HbA1c % - ej. 5.7">
+<input id="lab-ferritina2" placeholder="Ferritina ng/mL - ej. 45">
+<input id="lab-vitd2" placeholder="Vitamina D ng/mL - ej. 30">
+<input id="lab-b12-2" placeholder="Vitamina B12 pg/mL - ej. 350">
+<input id="lab-vsg2" placeholder="VSG mm/h - ej. 15">
+<input id="lab-pcr2" placeholder="PCR mg/L - ej. 5">
+<br><button onclick="analizarLaboratorio()">ANALIZAR EXAMEN COMPLETO</button>
 <div id="informe-diag" style="margin-top:12px"></div>
-<button onclick="guardarInforme()" class="sec">Guardar este informe en la ficha del paciente</button>
+<button onclick="guardarInforme()" class="sec">Guardar este informe en la ficha del paciente</button> <button onclick="borrarResultadoActual()" style="background:#fee2e2;color:#991b1b">🗑️ Borrar este resultado</button></button>
 <p id="informe-msg"></p>
-<h3>3. Informes guardados de este paciente</h3>
+<h3>3. HISTORIAL DEL PACIENTE - Todos los análisis, ninguno se borra solo</h3>
 <div id="list-informes"></div>
 </div>
 </div>
@@ -184,11 +265,36 @@ async function check(){try{let r=await fetch('/api/health');let j=await r.json()
 async function register(){let r=await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nombre:document.getElementById('r-nombre').value,especialidad:document.getElementById('r-esp').value,correo:document.getElementById('r-correo').value,password:document.getElementById('r-pass').value})});let j=await r.json();document.getElementById('r-msg').textContent=j.ok?'Cuenta creada. Ahora inicia sesión.':(j.error||'Error');}
 async function login(){let r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({correo:document.getElementById('l-correo').value,password:document.getElementById('l-pass').value})});let j=await r.json();if(!j.ok){document.getElementById('l-msg').textContent=j.error;return;}medico=j.medico;localStorage.setItem('centinela_medico',JSON.stringify(medico));document.getElementById('view-auth').classList.add('hidden');document.getElementById('view-dash').classList.remove('hidden');document.getElementById('top-medico').textContent='Dr. '+medico.nombre;loadPacientes();}
 function logout(){medico=null;localStorage.removeItem('centinela_medico');document.getElementById('view-dash').classList.add('hidden');document.getElementById('view-paciente').classList.add('hidden');document.getElementById('view-auth').classList.remove('hidden');}
-async function loadPacientes(){if(!medico) return;try{let r=await fetch('/api/pacientes?medico_id='+medico.id);let j=await r.json();pacientes=Array.isArray(j)?j:[];renderPacientes();}catch(e){console.log(e);}}
+async async function loadPacientes(){
+  if(!medico) return;
+  // 1) Intentar del servidor
+  let delServidor=[];
+  try{let r=await fetch('/api/pacientes?medico_id='+medico.id);let j=await r.json();delServidor=Array.isArray(j)?j:[];}catch(e){}
+  // 2) Lo que hay guardado en el navegador (esto NO se borra aunque Render se duerma)
+  let delNavegador=[];
+  try{delNavegador=JSON.parse(localStorage.getItem('centinela_pacientes_'+medico.id)||'[]');}catch(e){}
+  if(delServidor.length>0){
+    pacientes=delServidor;
+    // Guardar copia en navegador por si luego el servidor se borra
+    try{localStorage.setItem('centinela_pacientes_'+medico.id, JSON.stringify(pacientes));}catch(e){}
+  } else if(delNavegador.length>0){
+    // El servidor se borró (Render se durmió) pero en el navegador sí están -> mostrar esos y restaurarlos al servidor
+    pacientes=delNavegador;
+    let aviso=document.getElementById('aviso-restaurado');
+    if(aviso) aviso.style.display='block';
+    // Intentar restaurarlos al servidor en silencio
+    for(let p of pacientes){ try{ await fetch('/api/pacientes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)}); }catch(e){} }
+  } else {
+    pacientes=[];
+  }
+  window._pacientesCache=pacientes;
+  renderPacientes();
+}
 function filtrar(f){filtro=f;document.querySelectorAll('#tab-pacientes button').forEach(b=>{b.style.outline='';});renderPacientes();}
 function urgenciaDe(p){let ch=(diagLocal[p.id]||[])[0];return ch?ch.urgencia:'SIN CHEQUEO';}
 function tieneAnormal(p){return (imagenes[p.id]||[]).some(i=>i.estado==='Revisado - Anormal');}
-function renderPacientes(){
+function guardarEnNavegador(){ try{ if(medico && pacientes) localStorage.setItem('centinela_pacientes_'+medico.id, JSON.stringify(pacientes)); }catch(e){} }
+function renderPacientes(){ guardarEnNavegador();
  let q=(document.getElementById('busc')?.value||'').toLowerCase();
  let list=(pacientes||[]).filter(p=>(p.nombre||'').toLowerCase().includes(q));
  // FILTRO CORREGIDO: Solo filtra si NO es TODOS. SIN CHEQUEO solo se muestra en Todo y en Sin chequeo.
@@ -340,8 +446,60 @@ function analizarLaboratorio(){
  window._ultimoInforme=htmlInforme;
  window._ultimoInformeTexto=hall.map(h=>h.nombre+': '+h.v+' '+h.unidad+' '+h.e).join(' | ')+' || '+interp.join(' ');
 }
-function guardarInforme(){if(!window._ultimoInforme) return alert('Primero toca ANALIZAR EXAMEN COMPLETO');let arr=JSON.parse(localStorage.getItem('informes_'+pacienteActual.id)||'[]');arr.unshift({fecha:new Date().toISOString(), texto:window._ultimoInformeTexto, html:window._ultimoInforme});localStorage.setItem('informes_'+pacienteActual.id, JSON.stringify(arr));renderInformes();alert('Informe guardado en la ficha.');}
-function renderInformes(){let arr=JSON.parse(localStorage.getItem('informes_'+(pacienteActual?pacienteActual.id:0))||'[]');let head=arr.length?'<button class="sec" style="background:#fee2e2" onclick="borrarTodosInformes(false)">🗑️ BORRAR TODOS LOS INFORMES GUARDADOS</button><br>':'';document.getElementById('list-informes').innerHTML=head+arr.map((it,i)=>'<div class="card"><b>'+it.fecha+'</b><br>'+it.texto+'<br><button onclick="verInforme('+i+')">Ver informe completo</button> <button class="sec" style="background:#fee2e2" onclick="borrarUnInforme('+i+')">🗑️ Borrar este informe</button></div>').join('')||'<p>Sin informes guardados aún.</p>';}
+function guardarInforme(){
+  if(!window._ultimoInforme) return alert('Primero toca 
+<h3>5. EXAMEN DE HECES - Coprológico</h3>
+<p><small>Igual que orina: color, moco, sangre, parásitos, etc. El lector también entiende (+) y NEGATIVO.</small></p>
+<input id="lab-heces-color" placeholder="Color heces - ej. Café / Amarillo / Verde">
+<select id="lab-heces-consistencia"><option value="">Consistencia - elige</option><option>Formada</option><option>Blanda</option><option>Líquida</option><option>Dura</option></select>
+<select id="lab-heces-moco"><option value="">Moco - elige</option><option>Negativo</option><option>(+)</option><option>(++)</option><option>(+++)</option></select>
+<select id="lab-heces-sangre"><option value="">Sangre en heces - elige</option><option>Negativo</option><option>(+)</option><option>(++)</option><option>Visible</option></select>
+<select id="lab-heces-parasitos"><option value="">Parásitos - elige</option><option>Negativo</option><option>Positivo</option></select>
+<input id="lab-heces-parasito-tipo" placeholder="Qué parásito salió - ej. Giardia / Áscaris / Ameba">
+<input id="lab-heces-huevos" placeholder="Huevos de parásitos - ej. Positivo / Negativo">
+<input id="lab-heces-leuco" placeholder="Leucocitos en heces - ej. 1-2 /campo / Negativo">
+<input id="lab-heces-grasa" placeholder="Grasa en heces - ej. Negativo / (+) ">
+<input id="lab-heces-ph" placeholder="pH heces - ej. 6.5">
+<select id="lab-heces-sangre-oculta"><option value="">Sangre oculta - elige</option><option>Negativo</option><option>Positivo</option></select>
+
+<h3>6. CULTIVOS Y OTROS EXÁMENES PARECIDOS</h3>
+<p><small>Esputo, exudado de garganta, cultivo vaginal, cultivo de herida. Todos se llenan igual.</small></p>
+<select id="lab-cultivo-tipo"><option value="">Tipo de cultivo - elige</option><option>Esputo</option><option>Exudado faríngeo / Garganta</option><option>Cultivo vaginal</option><option>Cultivo de orina</option><option>Cultivo de herida</option><option>Cultivo de sangre / Hemocultivo</option></select>
+<input id="lab-cultivo-germen" placeholder="Qué germen salió - ej. E. coli / Streptococcus / Candida">
+<select id="lab-cultivo-resultado"><option value="">Resultado cultivo - elige</option><option>Negativo</option><option>Positivo</option><option>Contaminada</option></select>
+<input id="lab-cultivo-antibiotico" placeholder="Antibiótico que sí le hace - ej. Amoxicilina / según antibiograma">
+<input id="lab-esputo-color" placeholder="Esputo - Color - ej. Amarillo / Verde / Transparente">
+<select id="lab-esputo-sangre"><option value="">Esputo - Sangre - elige</option><option>Negativo</option><option>(+)</option><option>Visible</option></select>
+<input id="lab-bk" placeholder="BK / Tuberculosis - ej. Negativo / Positivo / (+) ">
+
+<h3>7. OTROS VALORES QUE YA TIENE EL DIAGNOSTICADOR Y A VECES FALTAN</h3>
+<p><small>Estos ya estaban, pero te los dejo juntos para que no los busques.</small></p>
+<input id="lab-hb2" placeholder="Hemoglobina g/dL - ej. 12.5 (mismo que arriba)">
+<input id="lab-hba1c2" placeholder="HbA1c % - ej. 5.7">
+<input id="lab-ferritina2" placeholder="Ferritina ng/mL - ej. 45">
+<input id="lab-vitd2" placeholder="Vitamina D ng/mL - ej. 30">
+<input id="lab-b12-2" placeholder="Vitamina B12 pg/mL - ej. 350">
+<input id="lab-vsg2" placeholder="VSG mm/h - ej. 15">
+<input id="lab-pcr2" placeholder="PCR mg/L - ej. 5">
+<br><button onclick="analizarLaboratorio()">ANALIZAR EXAMEN COMPLETO');
+  guardarInformeAuto();
+  alert('Informe guardado en el historial. Ya no se borra aunque hagas otro análisis.');
+}
+function guardarInformeAuto(){
+  if(!window._ultimoInforme || !pacienteActual) return;
+  let arr=JSON.parse(localStorage.getItem('informes_'+pacienteActual.id)||'[]');
+  // Evitar duplicado si se toca ANALIZAR 2 veces seguidas con los mismos valores: si el último es igual, no duplicar
+  if(arr.length>0 && arr[0].texto===window._ultimoInformeTexto) return;
+  arr.unshift({fecha:new Date().toLocaleString('es-GT'), texto:window._ultimoInformeTexto, html:window._ultimoInforme, numero:arr.length+1});
+  localStorage.setItem('informes_'+pacienteActual.id, JSON.stringify(arr));
+  renderInformes();
+}
+function renderInformes(){
+  let arr=JSON.parse(localStorage.getItem('informes_'+(pacienteActual?pacienteActual.id:0))||'[]');
+  let head='<p><b>Historial del paciente: '+arr.length+' análisis guardados. Ninguno se borra solo.</b></p>';
+  if(arr.length) head+='<button class="sec" style="background:#fee2e2" onclick="borrarTodosInformes(false)">🗑️ BORRAR TODO EL HISTORIAL (solo si tú lo decides)</button> <button class="sec" style="background:#fde68a" onclick="borrarAnalisisDePacienteQueNoLlego()">Paciente ya no llegó - Borrar sus análisis</button></button><br>';
+  document.getElementById('list-informes').innerHTML=head+arr.map((it,i)=>'<div class="card" style="border-left:4px solid #2563eb"><b>Análisis #'+(arr.length-i)+' - '+it.fecha+'</b><br>'+it.texto+'<br><button onclick="verInforme('+i+')">Ver informe completo</button> <button class="sec" style="background:#fee2e2" onclick="borrarUnInforme('+i+')">🗑️ Borrar solo este análisis</button></div>').join('')||'<p>Sin análisis guardados aún. Cuando toques ANALIZAR, el primero se guarda aquí.</p>';
+}
 function verInforme(i){let arr=JSON.parse(localStorage.getItem('informes_'+pacienteActual.id)||'[]');let w=window.open('');w.document.write(arr[i].html);}
 
 async function leerFotoOCR(){
@@ -376,6 +534,7 @@ function llenarDesdeTexto(texto){
   let mapa=[['lab-hb',['hemoglobina','hb']],['lab-hto',['hematocrito']],['lab-vcm',['vcm']],['lab-leuco',['leucocitos','wbc']],['lab-neu',['neutrofilos']],['lab-lin',['linfocitos']],['lab-mono',['monocitos']],['lab-eos',['eosinofilos']],['lab-pla',['plaquetas','plt']],['lab-mpv',['mpv']],['lab-gluc',['glucosa']],['lab-urea',['urea']],['lab-crea',['creatinina']],['lab-tgo',['tgo','ast']],['lab-tgp',['tgp','alt']],['lab-col',['colesterol total']],['lab-ldl',['ldl']],['lab-hdl',['hdl']],['lab-trig',['trigliceridos']],['lab-tsh',['tsh']]];
   let n=0;
   mapa.forEach(([id,pats])=>{let v=buscarValor(texto,pats); if(v!==null){let el=document.getElementById(id); if(el && !el.value){el.value=v; n++;}}});
+  llenarOrinaDesdeTexto(texto); llenarHecesYCultivos(texto);
   document.getElementById('ocr-msg').textContent = n===0 ? 'La foto se leyó pero no encontré los números. Revisa el texto abajo y escribe a mano.' : 'Listo. Llené '+n+' valores solos. Revisa cada uno. Si uno está mal, bórralo y escribe el correcto. Luego toca ANALIZAR.';
 }
 
@@ -385,6 +544,9 @@ function borrarTodosValores(){
   document.querySelectorAll('#p-diagnosticador select').forEach(s=>{if(s.id && s.id.startsWith('lab-or')) s.value='';});
   document.getElementById('informe-diag').innerHTML='';
   window._ultimoInforme=null; window._ultimoInformeTexto='';
+  // HISTORIAL: cada análisis se guarda solo, no borra el anterior
+  guardarInformeAuto();
+  document.getElementById('informe-diag').insertAdjacentHTML('afterbegin','<p style="background:#dcfce7;padding:8px;border-radius:8px"><b>✅ Este análisis ya quedó guardado en el historial de abajo.</b> Puedes hacer otro análisis y el anterior NO se borra.</p>');
   let msg=document.getElementById('ocr-msg'); if(msg) msg.textContent='Valores borrados. Ahora también puedes borrar los informes guardados de abajo si quieres.';
   // Preguntar si también quiere borrar los informes guardados del examen anterior
   if(confirm('¿También quieres borrar los INFORMES GUARDADOS del examen anterior que salen abajo? Si le das que SÍ, ya no van a salir. Si le das que NO, se quedan guardados.')){borrarTodosInformes(true);}
@@ -401,5 +563,52 @@ function borrarTodosInformes(silencioso){
   localStorage.removeItem('informes_'+pacienteActual.id);
   renderInformes();
   if(!silencioso) alert('Informes guardados borrados.');
+}
+
+function llenarOrinaDesdeTexto(texto){
+  let t=texto.toLowerCase();
+  let poner=(id, val)=>{let el=document.getElementById(id); if(el && !el.value) el.value=val;};
+  // Densidad 1.015
+  let mD=t.match(/densidad[^0-9]{0,20}(1\.\d{3}|1\.0\d{2})/); if(mD) poner('lab-or-densidad', mD[1]);
+  // pH 6.0
+  let mPh=t.match(/ph[^0-9]{0,20}([4-9]\.[0-9])/); if(mPh) poner('lab-or-ph', mPh[1]);
+  // Color amarillo
+  if(t.includes('amarillo')) poner('lab-or-color','AMARILLO');
+  if(t.includes('lig. turbio')||t.includes('lig turbio')) poner('lab-or-aspecto','LIG. TURBIO');
+  if(t.includes('transparente') && !t.includes('lig')) poner('lab-or-aspecto','Transparente');
+  // Leucocitos (+) en orina: buscar "leucocitos" seguido de (+) en la misma línea de orina
+  if(t.includes('leucocitos') && t.includes('(+)')) poner('lab-or-leuco-cual','(+)');
+  if(t.includes('bacterias') && t.includes('(+)')) poner('lab-or-bacterias','(+)');
+  if(t.includes('filamentos') && t.includes('(+)')) poner('lab-or-filamentos','(+)');
+  // Células epiteliales 1-3
+  let mCel=t.match(/c[eé]lulas epiteliales[^0-9]{0,20}(\d+\s*-\s*\d+)/); if(mCel) poner('lab-or-celulas', mCel[1]);
+  // Si todo es NEGATIVO, poner Negativo en los select vacíos
+  if(t.includes('nitritos') && t.includes('negativo')) poner('lab-or-nit','Negativo');
+  if(t.includes('proteinas') && t.includes('negativo')) poner('lab-or-prot','Negativo');
+}
+
+function llenarHecesYCultivos(texto){
+  let t=texto.toLowerCase();
+  let poner=(id,val)=>{let el=document.getElementById(id); if(el && !el.value) el.value=val;};
+  if(t.includes('coprol')||t.includes('heces')||t.includes('examen de heces')){
+    if(t.includes('moco') && t.includes('(+)')) poner('lab-heces-moco','(+)');
+    if(t.includes('sangre') && t.includes('(+)')) poner('lab-heces-sangre','(+)');
+    if(t.includes('parasit') && t.includes('positivo')) poner('lab-heces-parasitos','Positivo');
+    if(t.includes('parasit') && t.includes('negativo')) poner('lab-heces-parasitos','Negativo');
+    if(t.includes('giardia')) poner('lab-heces-parasito-tipo','Giardia');
+    if(t.includes('ascaris')||t.includes('áscaris')) poner('lab-heces-parasito-tipo','Áscaris');
+    if(t.includes('ameba')) poner('lab-heces-parasito-tipo','Ameba');
+  }
+  if(t.includes('esputo')||t.includes('bk')||t.includes('tuberculosis')){
+    if(t.includes('bk') && t.includes('positivo')) poner('lab-bk','Positivo');
+    if(t.includes('bk') && t.includes('negativo')) poner('lab-bk','Negativo');
+  }
+  if(t.includes('cultivo')){
+    if(t.includes('e. coli')||t.includes('e coli')) poner('lab-cultivo-germen','E. coli');
+    if(t.includes('streptococcus')) poner('lab-cultivo-germen','Streptococcus');
+    if(t.includes('candida')) poner('lab-cultivo-germen','Candida');
+    if(t.includes('positivo')) poner('lab-cultivo-resultado','Positivo');
+    if(t.includes('negativo')) poner('lab-cultivo-resultado','Negativo');
+  }
 }
 </script></body></html>
