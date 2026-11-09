@@ -1,0 +1,450 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CENTINELA MÉDICO</title>
+<style>body{font-family:system-ui;margin:0;background:#f4f7fa;color:#0f2040}.top{background:#0f2a4a;color:#fff;padding:14px 18px;position:sticky;top:0}.wrap{max-width:1000px;margin:0 auto;padding:16px}.card{background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:12px}input,select,textarea{width:100%;padding:10px;border:1px solid #d6dde8;border-radius:10px;margin:6px 0;box-sizing:border-box}button{background:#0f2a4a;color:#fff;border:0;padding:11px 14px;border-radius:10px;font-weight:700;cursor:pointer;margin:4px 4px 4px 0}button.sec{background:#e2e8f0;color:#0f2040}.tabs{display:flex;gap:6px;flex-wrap:wrap}.tab{padding:8px 12px;background:#e2e8f0;border-radius:999px;cursor:pointer}.tab.on{background:#0f2a4a;color:#fff}.badge{padding:4px 10px;border-radius:999px;font-weight:700;font-size:12px}.roja{background:#fee2e2;color:#991b1b}.amarilla{background:#fef3c7;color:#92400e}.verde{background:#dcfce7;color:#166534}.chip{display:inline-block;padding:8px 12px;background:#eef2ff;border-radius:999px;margin:4px;cursor:pointer}.chip.on{background:#0f2a4a;color:#fff}.bar{height:12px;background:#e2e8f0;border-radius:99px;overflow:hidden}.bar>div{height:100%;background:#0f2a4a}small{color:#64748b}.hidden{display:none}</style><script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js">
+async function leerFotoOCR(){
+  let inp=document.getElementById('ocr-file');
+  let f=inp.files[0];
+  if(!f) return alert('Primero elige la foto. Toca Seleccionar archivo.');
+  let msg=document.getElementById('ocr-msg');
+  msg.textContent='Revisando lector...';
+  if(typeof Tesseract==='undefined'){msg.textContent='El lector no cargó por internet. Revisa tu conexión a internet y vuelve a intentar.';return;}
+  msg.textContent='Leyendo foto... espera 10-20 segundos, no cierres la ventana.';
+  try{
+    let worker = await Tesseract.createWorker('spa+eng');
+    let res = await worker.recognize(f);
+    await worker.terminate();
+    let texto=res.data.text||'';
+    document.getElementById('ocr-texto').textContent=texto;
+    if(!texto.trim()){msg.textContent='Leí la foto pero salió en blanco. Intenta con una foto más clara o escribe los valores a mano.';return;}
+    msg.textContent='Foto leída. Revisa los valores que llenó abajo.';
+    llenarDesdeTexto(texto);
+  }catch(e){msg.textContent='No se pudo leer la foto. Intenta con una foto más clara: intenta con una foto más clara de la hoja impresa. Error: '+e.message;}
+}
+function buscarValor(texto,patrones){
+  let t=texto.toLowerCase();
+  for(let p of patrones){
+    let re=new RegExp(p+'[^0-9\n]{0,20}([0-9]+[.,][0-9]+|[0-9]+)','i');
+    let m=t.match(re);
+    if(m){let v=parseFloat(m[1].replace(',','.')); if(!isNaN(v)) return v;}
+  }
+  return null;
+}
+function llenarDesdeTexto(texto){
+  let mapa=[['lab-hb',['hemoglobina','hb']],['lab-hto',['hematocrito']],['lab-vcm',['vcm']],['lab-leuco',['leucocitos','wbc']],['lab-neu',['neutrofilos']],['lab-lin',['linfocitos']],['lab-mono',['monocitos']],['lab-eos',['eosinofilos']],['lab-pla',['plaquetas','plt']],['lab-mpv',['mpv']],['lab-gluc',['glucosa']],['lab-urea',['urea']],['lab-crea',['creatinina']],['lab-tgo',['tgo','ast']],['lab-tgp',['tgp','alt']],['lab-col',['colesterol total']],['lab-ldl',['ldl']],['lab-hdl',['hdl']],['lab-trig',['trigliceridos']],['lab-tsh',['tsh']]];
+  let n=0;
+  mapa.forEach(([id,pats])=>{let v=buscarValor(texto,pats); if(v!==null){let el=document.getElementById(id); if(el && !el.value){el.value=v; n++;}}});
+  document.getElementById('ocr-msg').textContent = n===0 ? 'La foto se leyó pero no encontré los números. Revisa el texto abajo y escribe a mano.' : 'Listo. Llené '+n+' valores solos. Revisa cada uno. Si uno está mal, bórralo y escribe el correcto. Luego toca ANALIZAR.';
+}
+
+function borrarTodosValores(){
+  if(!confirm('¿Borrar los valores que escribiste para hacer un nuevo análisis? El historial de abajo NO se borra.')) return;
+  document.querySelectorAll('#p-diagnosticador input[type="number"]').forEach(i=>i.value='');
+  document.querySelectorAll('#p-diagnosticador select').forEach(s=>{if(s.id && s.id.startsWith('lab-or')) s.value='';});
+  document.getElementById('informe-diag').innerHTML='<p style="background:#eff6ff;padding:8px;border-radius:8px">Valores borrados. Escribe los nuevos valores del siguiente examen. El historial de abajo se queda guardado.</p>';
+  window._ultimoInforme=null; window._ultimoInformeTexto='';
+  let msg=document.getElementById('ocr-msg'); if(msg) msg.textContent='Valores borrados para el siguiente examen. El historial NO se borró.';
+}
+}
+function borrarUnInforme(i){
+  let arr=JSON.parse(localStorage.getItem('informes_'+pacienteActual.id)||'[]');
+  if(!confirm('¿Borrar este informe guardado?')) return;
+  arr.splice(i,1);
+  localStorage.setItem('informes_'+pacienteActual.id, JSON.stringify(arr));
+  renderInformes();
+}
+function borrarTodosInformes(silencioso){
+  if(!silencioso && !confirm('¿Borrar TODOS los informes guardados de este paciente?')) return;
+  localStorage.removeItem('informes_'+pacienteActual.id);
+  renderInformes();
+  if(!silencioso) alert('Informes guardados borrados.');
+}
+</script></head>
+<body><div class="top"><b>CENTINELA MÉDICO</b> <span id="top-medico"></span> <span style="float:right" id="top-instance"></span></div>
+<div class="wrap">
+<div id="view-auth">
+<div class="card"><h2>Ingreso del Médico</h2><p>Tu instancia es independiente. Cada doctor tiene la suya.</p><input id="r-nombre" placeholder="Nombre del médico"><input id="r-esp" placeholder="Especialidad"><input id="r-correo" placeholder="Correo"><input id="r-pass" type="password" placeholder="Contraseña: 8+, mayúscula, minúscula, número y símbolo"><button onclick="register()">Crear cuenta</button><p id="r-msg"></p><hr><input id="l-correo" placeholder="Correo"><input id="l-pass" type="password" placeholder="Contraseña"><button onclick="login()">Ingresar</button><p id="l-msg"></p></div>
+<div class="card"><small>DEMO EDUCATIVA AVANZADA - No es dispositivo médico certificado. Diagnósticos probables simulados, validados por el médico. Recetas las escribe el médico.</small></div>
+</div>
+<div id="view-dash" class="hidden">
+<div class="card"><h2 id="dash-title">Mis Pacientes</h2><p id="dash-counts"></p><div class="tabs"><div class="tab on" onclick="showTab('pacientes',this)">Pacientes</div><div class="tab" onclick="showTab('agenda',this)">Agenda de Citas</div></div>
+<div id="tab-pacientes"><input id="busc" placeholder="Buscar paciente por nombre" oninput="renderPacientes()"><div style="margin:8px 0"><button onclick="filtrar('TODOS')">Todos</button><button class="sec" onclick="filtrar('ROJA')">Solo Rojas</button><button class="sec" onclick="filtrar('AMARILLA')">Solo Amarillas</button><button class="sec" onclick="filtrar('VERDE')">Solo Verdes</button><button class="sec" onclick="filtrar('ANORMAL')">Solo Imagen Anormal</button><button class="sec" onclick="filtrar('SIN CHEQUEO')">Sin chequeo</button></div>
+<input id="p-nombre" placeholder="Nombre completo del paciente"><input id="p-edad" type="number" placeholder="Edad"><input id="p-ciudad" placeholder="Ciudad"><input id="p-alergias" placeholder="Alergias"><textarea id="p-antec" placeholder="Antecedentes"></textarea><button onclick="addPaciente()">Agregar nuevo paciente</button><div id="lista-pacientes"></div></div>
+<div id="tab-agenda" class="hidden"><input type="date" id="agenda-fecha"><button onclick="renderAgenda()">Ver citas de ese día</button><div id="lista-citas"></div></div>
+<button class="sec" onclick="logout()">Cerrar sesión</button> <button class="sec" onclick="exportar()">Exportar respaldo JSON</button> <button onclick="document.getElementById('import-file').click()">Importar respaldo</button><input type="file" id="import-file" accept=".json" style="display:none" onchange="importarRespaldo(event)"></button> <button class="sec" style="background:#fee2e2;color:#991b1b" onclick="borrarTodos()">🗑️ BORRAR TODOS LOS PACIENTES - Empezar en cero</button></div>
+</div>
+<div id="view-paciente" class="hidden">
+<div class="card"><button class="sec" onclick="volver()">← Volver a lista</button><h2 id="pac-title"></h2><p id="pac-sub"></p><div id="pac-alerta"></div><div style="background:#fef3c7;padding:12px;border-radius:10px;margin:10px 0"><b>¿Dónde están los exámenes?</b><br>Toca la pestaña <b>Exámenes / Imágenes</b> abajo. Ahí están Laboratorio, Ultrasonidos y Radiografías con subida de foto/PDF y la interpretación del radiólogo. <button onclick="irExamenes()">IR DIRECTO A EXÁMENES / ULTRASONIDOS / RADIOGRAFÍAS</button></div>
+<div class="tabs"><div class="tab on" onclick="ptab('historial',this)">Historial</div><div class="tab" onclick="ptab('sintomas',this)">Síntomas / Chequeo</div><div class="tab" onclick="ptab('examenes',this)">Exámenes / Imágenes</div><div class="tab" onclick="ptab('diagnosticos',this)">Diagnósticos</div><div class="tab" style="background:#fee2e2" onclick="ptab('diagnosticador',this)">🩺 DIAGNOSTICADOR</div><div class="tab" onclick="ptab('recetas',this)">Recetas</div><div class="tab" onclick="ptab('citas',this)">Citas</div></div>
+<div id="p-historial"><textarea id="hist-text" placeholder="Escribe aquí el historial del paciente..."></textarea><button onclick="guardarHist()">Guardar historial (se guarda en notas del navegador)</button><p id="hist-msg"></p></div>
+<div id="p-sintomas" class="hidden"><p>Marca síntomas:</p><div id="chips"></div><input id="s-dur" placeholder="Duración (ej: 2 días)"><input id="s-temp" type="number" step="0.1" placeholder="Temperatura °C"><input id="s-spo2" type="number" placeholder="SpO2 %"><button onclick="analizar()">ANALIZAR EN AUTOMÁTICO</button><div id="resultado"></div><button onclick="guardarChequeo()">Guardar este chequeo en historial</button></div>
+<div id="p-examenes" class="hidden"><h3>Laboratorio</h3><input type="file" id="f-lab" onchange="subirArchivo('Laboratorio',this)"><div id="list-lab"></div><h3>Ultrasonidos</h3><input type="file" id="f-ultra" onchange="subirArchivo('Ultrasonido',this)"><div id="list-ultra"></div><h3>Radiografías</h3><input type="file" id="f-radio" onchange="subirArchivo('Radiografía',this)"><div id="list-radio"></div><p><small>Al subir, escribe interpretación y estado. Si es Anormal, el paciente saldrá con alerta en la lista.</small></p></div>
+<div id="p-diagnosticos" class="hidden"><div id="list-diag"></div><p>Diagnóstico final del médico:</p><textarea id="diag-final" placeholder="Escribe aquí tu diagnóstico final..."></textarea><input id="trat-final" placeholder="Tratamiento indicado por el médico"><button onclick="guardarDiagFinal()">Guardar diagnóstico final</button></div>
+
+<div id="p-diagnosticador" class="hidden">
+<div class="card" style="background:#fff7ed;border:2px solid #f97316">
+<h2>🩺 CENTINELA DIAGNOSTICADOR - Análisis Completo</h2>
+<div class="card" style="background:#eff6ff;border:2px solid #2563eb">
+<h3>📸 LLENAR CON FOTO O PDF</h3>
+<p>Sube la foto del examen. La app la lee y llena sola los espacios. Si un número lo copia mal, lo borras y lo escribes bien.</p>
+<input type="file" id="ocr-file" accept="image/*,.pdf">
+<button onclick="leerFotoOCR()" style="background:#2563eb">📸 LEER FOTO Y LLENAR SOLA</button>
+<p id="ocr-msg"></p>
+<div id="ocr-texto" style="background:#fff;padding:10px;border-radius:8px;max-height:120px;overflow:auto;font-size:12px"></div>
+<p><small>LECTOR DE FOTO - Sube la foto de la hoja impresa del laboratorio, de frente y con buena luz. Todo se queda en tu computadora. Revisa siempre los números.</small></p>
+</div>
+
+<p>Escribe los valores del hemograma / laboratorio tal como salen en la hoja. No subas foto, escribe los números. La app los compara con valores de referencia y te da el informe completo.</p>
+<p><small>AYUDA DIAGNÓSTICA - NO ES DIAGNÓSTICO DEFINITIVO. El médico valida el resultado final.</small></p>
+<h3>1. Datos del paciente para este análisis</h3>
+<input id="diag-edad2" placeholder="Edad del paciente">
+<select id="diag-sexo"><option value="F">Mujer</option><option value="M">Hombre</option><option value="">Niño/a</option></select>
+<input id="diag-sintomas-txt" placeholder="Síntomas actuales: ej. fiebre, cansancio, dolor de cabeza">
+<h3>2. HEMOGRAMA COMPLETO</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+<div><label>Hemoglobina g/dL</label><input id="lab-hb" type="number" step="0.1" placeholder="ej. 12.5"></div>
+<div><label>Hematocrito %</label><input id="lab-hto" type="number" step="0.1" placeholder="ej. 38"></div>
+<div><label>Glóbulos rojos millones (4.5-5.5)</label><input id="lab-gr" type="number" step="0.1" placeholder="ej. 4.8"></div>
+<div><label>VCM fL (80-100)</label><input id="lab-vcm" type="number" step="0.1" placeholder="ej. 88"></div>
+<div><label>HCM pg (27-33)</label><input id="lab-hcm" type="number" step="0.1" placeholder="ej. 30"></div>
+<div><label>CHCM g/dL (32-36)</label><input id="lab-chcm" type="number" step="0.1" placeholder="ej. 34"></div>
+<div><label>RDW % (11.5-14.5)</label><input id="lab-rdw" type="number" step="0.1" placeholder="ej. 13"></div>
+<div><label>Leucocitos x10³ (4.0-11.0)</label><input id="lab-leuco" type="number" step="0.1" placeholder="ej. 13.5"></div>
+<div><label>Neutrófilos % (40-70)</label><input id="lab-neu" type="number" step="0.1" placeholder="ej. 62"></div>
+<div><label>Linfocitos % (20-40)</label><input id="lab-lin" type="number" step="0.1" placeholder="ej. 28"></div>
+<div><label>Monocitos % (2-8)</label><input id="lab-mono" type="number" step="0.1" placeholder="ej. 11"></div>
+<div><label>Eosinófilos % (1-4)</label><input id="lab-eos" type="number" step="0.1" placeholder="ej. 2"></div>
+<div><label>Basófilos % (0-1)</label><input id="lab-bas" type="number" step="0.1" placeholder="ej. 0.5"></div>
+<div><label>Plaquetas x10³ (150-400)</label><input id="lab-pla" type="number" step="0.1" placeholder="ej. 433"></div>
+<div><label>MPV fL (7.5-11.5)</label><input id="lab-mpv" type="number" step="0.1" placeholder="ej. 12.2"></div>
+<div><label>Reticulocitos % (0.5-2.5)</label><input id="lab-ret" type="number" step="0.1" placeholder="ej. 1.2"></div>
+<div><label>VSG / Eritrosedimentación mm/h (0-20)</label><input id="lab-vsg" type="number" step="0.1" placeholder="ej. 25"></div>
+<div><label>PCR mg/L (0-5)</label><input id="lab-pcr" type="number" step="0.1" placeholder="ej. 12"></div>
+</div>
+<h3>3. QUÍMICA SANGUÍNEA - Riñón, Hígado, Metabolismo</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+<div><label>Glucosa mg/dL (70-110 ayunas)</label><input id="lab-gluc" type="number" step="0.1" placeholder="ej. 95"></div>
+<div><label>Hemoglobina A1c % (4-5.6)</label><input id="lab-a1c" type="number" step="0.1" placeholder="ej. 5.2"></div>
+<div><label>Urea mg/dL (15-40)</label><input id="lab-urea" type="number" step="0.1" placeholder="ej. 28"></div>
+<div><label>Creatinina mg/dL (0.6-1.2)</label><input id="lab-crea" type="number" step="0.1" placeholder="ej. 0.9"></div>
+<div><label>Ácido úrico mg/dL (3.5-7.2 hombre, 2.6-6.0 mujer)</label><input id="lab-acido" type="number" step="0.1" placeholder="ej. 5.0"></div>
+<div><label>TGO / AST U/L (10-40)</label><input id="lab-tgo" type="number" step="0.1" placeholder="ej. 30"></div>
+<div><label>TGP / ALT U/L (10-40)</label><input id="lab-tgp" type="number" step="0.1" placeholder="ej. 35"></div>
+<div><label>Bilirrubina total mg/dL (0.2-1.2)</label><input id="lab-bili" type="number" step="0.1" placeholder="ej. 0.8"></div>
+<div><label>Fosfatasa alcalina U/L (40-150)</label><input id="lab-fosf" type="number" step="0.1" placeholder="ej. 90"></div>
+<div><label>Proteínas totales g/dL (6.0-8.3)</label><input id="lab-prot" type="number" step="0.1" placeholder="ej. 7.0"></div>
+<div><label>Albúmina g/dL (3.5-5.0)</label><input id="lab-alb" type="number" step="0.1" placeholder="ej. 4.2"></div>
+<div><label>Colesterol total mg/dL (menos de 200)</label><input id="lab-col" type="number" step="0.1" placeholder="ej. 210"></div>
+<div><label>HDL mg/dL (más de 40)</label><input id="lab-hdl" type="number" step="0.1" placeholder="ej. 45"></div>
+<div><label>LDL mg/dL (menos de 130)</label><input id="lab-ldl" type="number" step="0.1" placeholder="ej. 140"></div>
+<div><label>Triglicéridos mg/dL (menos de 150)</label><input id="lab-trig" type="number" step="0.1" placeholder="ej. 160"></div>
+<div><label>Calcio mg/dL (8.5-10.5)</label><input id="lab-ca" type="number" step="0.1" placeholder="ej. 9.5"></div>
+<div><label>Sodio mEq/L (135-145)</label><input id="lab-na" type="number" step="0.1" placeholder="ej. 140"></div>
+<div><label>Potasio mEq/L (3.5-5.0)</label><input id="lab-k" type="number" step="0.1" placeholder="ej. 4.2"></div>
+<div><label>Hierro µg/dL (60-170)</label><input id="lab-hierro" type="number" step="0.1" placeholder="ej. 80"></div>
+<div><label>Ferritina ng/mL (15-200 mujer, 30-300 hombre)</label><input id="lab-ferri" type="number" step="0.1" placeholder="ej. 50"></div>
+<div><label>Vitamina D ng/mL (30-100)</label><input id="lab-vitd" type="number" step="0.1" placeholder="ej. 28"></div>
+<div><label>Vitamina B12 pg/mL (200-900)</label><input id="lab-b12" type="number" step="0.1" placeholder="ej. 400"></div>
+<div><label>TSH mU/L (0.4-4.0) Tiroides</label><input id="lab-tsh" type="number" step="0.1" placeholder="ej. 2.5"></div>
+<div><label>T4 libre ng/dL (0.8-1.8)</label><input id="lab-t4" type="number" step="0.1" placeholder="ej. 1.1"></div>
+</div>
+<h3>4. EXAMEN DE ORINA</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+<div><label>Proteínas en orina (Negativo / Positivo)</label><select id="lab-or-prot"><option value="">No se hizo</option><option>Negativo</option><option>Positivo +</option><option>Positivo ++</option><option>Positivo +++</option></select></div>
+<div><label>Glucosa en orina</label><select id="lab-or-gluc"><option value="">No se hizo</option><option>Negativo</option><option>Positivo</option></select></div>
+<div><label>Sangre en orina</label><select id="lab-or-sang"><option value="">No se hizo</option><option>Negativo</option><option>Positivo</option></select></div>
+<div><label>Leucocitos en orina por campo (0-5)</label><input id="lab-or-leuco" type="number" step="0.1" placeholder="ej. 2"></div>
+<div><label>Nitritos</label><select id="lab-or-nit"><option value="">No se hizo</option><option>Negativo</option><option>Positivo</option></select></div>
+<div><label>pH orina (4.5-8.0)</label><input id="lab-or-ph" type="number" step="0.1" placeholder="ej. 6.0"></div>
+</div>
+<h3>5. OTROS - Si los tiene</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+<div><label>Dengue NS1 / IgM</label><select id="lab-dengue"><option value="">No se hizo</option><option>Negativo</option><option>Positivo</option></select></div>
+<div><label>Prueba COVID / Influenza</label><select id="lab-covid"><option value="">No se hizo</option><option>Negativo</option><option>Positivo</option></select></div>
+<div><label>Prueba de embarazo HCG</label><select id="lab-emb"><option value="">No se hizo</option><option>Negativo</option><option>Positivo</option></select></div>
+<div><label>VDRL / VIH / Hepatitis (anotar)</label><input id="lab-sero" placeholder="ej. VDRL negativo"></div>
+</div>
+<button class="sec" style="background:#fee2e2" onclick="borrarTodosValores()">🗑️ BORRAR TODOS LOS VALORES Y EMPEZAR DE NUEVO</button><br><button onclick="analizarLaboratorio()" style="background:#ea580c;font-size:16px;padding:14px 20px">🔍 ANALIZAR EXAMEN COMPLETO</button>
+<div id="informe-diag" style="margin-top:12px"></div>
+<button onclick="guardarInforme()" class="sec">Guardar este informe en la ficha del paciente</button> <button onclick="borrarResultadoActual()" style="background:#fee2e2;color:#991b1b">🗑️ Borrar este resultado</button></button>
+<p id="informe-msg"></p>
+<h3>3. HISTORIAL DEL PACIENTE - Todos los análisis, ninguno se borra solo</h3>
+<div id="list-informes"></div>
+</div>
+</div>
+<div id="p-recetas" class="hidden"><input id="rec-med" placeholder="Medicamento"><input id="rec-dosis" placeholder="Dosis ej: 500 mg"><input id="rec-frec" placeholder="Frecuencia ej: cada 8 horas"><input id="rec-dur" placeholder="Duración ej: 7 días"><input id="rec-cant" placeholder="Cantidad"><textarea id="rec-ind" placeholder="Indicaciones / cómo tomarlo"></textarea><button onclick="addReceta()">Guardar Receta</button><div id="list-recetas"></div></div>
+<div id="p-citas" class="hidden"><input type="date" id="cita-fecha"><input type="time" id="cita-hora"><input id="cita-motivo" placeholder="Motivo"><select id="cita-tipo"><option>Presencial</option><option>Teléfono</option><option>Seguimiento</option></select><button onclick="addCita()">Agendar cita</button><div id="list-citas-pac"></div></div>
+</div></div>
+</div>
+<script>
+let medico=null, pacientes=[], filtro='TODOS', pacienteActual=null, sintomasSel=[], ultimoChequeo=null, imagenes={}, recetasLocal={}, citasLocal={}, diagLocal={};
+const SINTOMAS=["Fiebre","Tos","Dolor de cabeza","Dolor abdominal","Erupción piel","Fatiga","Dificultad respirar","Náuseas","Diarrea","Dolor garganta"];
+function showTab(n,el){document.querySelectorAll('#view-dash .tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');document.getElementById('tab-pacientes').classList.toggle('hidden',n!=='pacientes');document.getElementById('tab-agenda').classList.toggle('hidden',n!=='agenda'); if(n==='agenda') renderAgenda();}
+function ptab(n,el){document.querySelectorAll('#view-paciente .tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');['historial','sintomas','examenes','diagnosticos','diagnosticador','recetas','citas'].forEach(k=>document.getElementById('p-'+k).classList.toggle('hidden',k!==n));}
+async function check(){try{let r=await fetch('/api/health');let j=await r.json();document.getElementById('top-instance').textContent=j.instance;}catch(e){}}
+async function register(){let r=await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nombre:document.getElementById('r-nombre').value,especialidad:document.getElementById('r-esp').value,correo:document.getElementById('r-correo').value,password:document.getElementById('r-pass').value})});let j=await r.json();document.getElementById('r-msg').textContent=j.ok?'Cuenta creada. Ahora inicia sesión.':(j.error||'Error');}
+async function login(){let r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({correo:document.getElementById('l-correo').value,password:document.getElementById('l-pass').value})});let j=await r.json();if(!j.ok){document.getElementById('l-msg').textContent=j.error;return;}medico=j.medico;localStorage.setItem('centinela_medico',JSON.stringify(medico));document.getElementById('view-auth').classList.add('hidden');document.getElementById('view-dash').classList.remove('hidden');document.getElementById('top-medico').textContent='Dr. '+medico.nombre;loadPacientes();}
+function logout(){medico=null;localStorage.removeItem('centinela_medico');document.getElementById('view-dash').classList.add('hidden');document.getElementById('view-paciente').classList.add('hidden');document.getElementById('view-auth').classList.remove('hidden');}
+async async function loadPacientes(){
+  if(!medico) return;
+  // 1) Intentar del servidor
+  let delServidor=[];
+  try{let r=await fetch('/api/pacientes?medico_id='+medico.id);let j=await r.json();delServidor=Array.isArray(j)?j:[];}catch(e){}
+  // 2) Lo que hay guardado en el navegador (esto NO se borra aunque Render se duerma)
+  let delNavegador=[];
+  try{delNavegador=JSON.parse(localStorage.getItem('centinela_pacientes_'+medico.id)||'[]');}catch(e){}
+  if(delServidor.length>0){
+    pacientes=delServidor;
+    // Guardar copia en navegador por si luego el servidor se borra
+    try{localStorage.setItem('centinela_pacientes_'+medico.id, JSON.stringify(pacientes));}catch(e){}
+  } else if(delNavegador.length>0){
+    // El servidor se borró (Render se durmió) pero en el navegador sí están -> mostrar esos y restaurarlos al servidor
+    pacientes=delNavegador;
+    let aviso=document.getElementById('aviso-restaurado');
+    if(aviso) aviso.style.display='block';
+    // Intentar restaurarlos al servidor en silencio
+    for(let p of pacientes){ try{ await fetch('/api/pacientes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)}); }catch(e){} }
+  } else {
+    pacientes=[];
+  }
+  window._pacientesCache=pacientes;
+  renderPacientes();
+}
+function filtrar(f){filtro=f;document.querySelectorAll('#tab-pacientes button').forEach(b=>{b.style.outline='';});renderPacientes();}
+function urgenciaDe(p){let ch=(diagLocal[p.id]||[])[0];return ch?ch.urgencia:'SIN CHEQUEO';}
+function tieneAnormal(p){return (imagenes[p.id]||[]).some(i=>i.estado==='Revisado - Anormal');}
+function guardarEnNavegador(){ try{ if(medico && pacientes) localStorage.setItem('centinela_pacientes_'+medico.id, JSON.stringify(pacientes)); }catch(e){} }
+function renderPacientes(){ guardarEnNavegador();
+ let q=(document.getElementById('busc')?.value||'').toLowerCase();
+ let list=(pacientes||[]).filter(p=>(p.nombre||'').toLowerCase().includes(q));
+ // FILTRO CORREGIDO: Solo filtra si NO es TODOS. SIN CHEQUEO solo se muestra en Todo y en Sin chequeo.
+ if(filtro!=='TODOS'){
+ list=list.filter(p=>{ if(filtro==='ANORMAL') return tieneAnormal(p); return urgenciaDe(p)===filtro; });
+ }
+ let orden={'ROJA':0,'AMARILLA':1,'VERDE':2,'SIN CHEQUEO':3};
+ list.sort((a,b)=>orden[urgenciaDe(a)]-orden[urgenciaDe(b)]);
+ let rojas=(pacientes||[]).filter(p=>urgenciaDe(p)==='ROJA').length;
+ let anorm=(pacientes||[]).filter(p=>tieneAnormal(p)).length;
+ document.getElementById('dash-counts').innerHTML='Total: '+pacientes.length+' | Rojas: '+rojas+' | Con imagen anormal: '+anorm+' | Viendo: '+filtro;
+ if(list.length===0 && pacientes.length>0){
+ document.getElementById('lista-pacientes').innerHTML='<div class="card" style="background:#fef3c7"><b>No hay pacientes con el filtro "'+filtro+'".</b><br>Tienes '+pacientes.length+' pacientes guardados, pero están escondidos por ese filtro.<br>Por ejemplo: si están en SIN CHEQUEO, no salen en Solo Verdes.<br><button onclick="filtrar(\'TODOS\')">VER TODOS LOS PACIENTES</button></div>';
+ return;
+ }
+ document.getElementById('lista-pacientes').innerHTML=list.map(p=>{let u=urgenciaDe(p);let cls=u==='ROJA'?'roja':u==='AMARILLA'?'amarilla':u==='VERDE'?'verde':'';return '<div class="card"><b>'+p.nombre+'</b> '+(p.edad||'')+' años - '+(p.ciudad||'')+'<br><span class="badge '+cls+'">'+u+'</span> '+(tieneAnormal(p)?'<span class="badge roja">⚠️ IMAGEN ANORMAL - Revisar</span>':'')+'<br><small>Alergias: '+(p.alergias||'Ninguna')+'</small><br><button onclick="abrirPaciente('+p.id+')">ABRIR FICHA - Ver Exámenes / Ultrasonidos / Radiografías</button> <button class="sec" style="background:#fee2e2" onclick="borrarUno('+p.id+',\''+(p.nombre||'').replace(/'/g,'')+'\')">Borrar este paciente</button></div>'}).join('')||'<p>Aún no tienes pacientes. Agrega el primero.</p>';
+}
+async function addPaciente(){try{let d={medico_id:medico.id,nombre:document.getElementById('p-nombre').value.trim(),edad:parseInt(document.getElementById('p-edad').value)||0,ciudad:document.getElementById('p-ciudad').value,alergias:document.getElementById('p-alergias').value,antecedentes:document.getElementById('p-antec').value};if(!d.nombre) return alert('Pon el nombre del paciente');let btn=document.activeElement;let r=await fetch('/api/pacientes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});let j=await r.json();if(!j.ok) return alert('No se pudo guardar: '+(j.error||'error'));document.getElementById('p-nombre').value='';document.getElementById('p-edad').value='';document.getElementById('p-ciudad').value='';document.getElementById('p-alergias').value='';document.getElementById('p-antec').value='';filtro='TODOS';await loadPacientes();alert('Paciente guardado: '+d.nombre+' - Ahora toca ABRIR FICHA para ver Exámenes, Ultrasonidos y Radiografías');}catch(e){alert('Error al guardar: '+e.message);}}
+async function abrirPaciente(id){pacienteActual=pacientes.find(p=>p.id===id);document.getElementById('view-dash').classList.add('hidden');document.getElementById('view-paciente').classList.remove('hidden');document.getElementById('pac-title').textContent=pacienteActual.nombre;document.getElementById('pac-sub').textContent=pacienteActual.edad+' años - '+(pacienteActual.ciudad||'')+' | Alergias: '+(pacienteActual.alergias||'Ninguna');document.getElementById('pac-alerta').innerHTML=tieneAnormal(pacienteActual)?'<div class="card" style="background:#fee2e2"><b>⚠️ Este paciente tiene un ultrasonido / radiografía con resultado anormal. Revisar interpretación.</b></div>':'';try{let savedImgs=localStorage.getItem('imgs_'+pacienteActual.id);if(savedImgs) imagenes[pacienteActual.id]=JSON.parse(savedImgs);}catch(e){} renderChips();renderImagenes();renderRecetas();renderDiag();renderCitasPac();renderInformes();let h=localStorage.getItem('hist_'+id);if(h) document.getElementById('hist-text').value=h;}
+function irExamenes(){ptab('examenes',document.querySelectorAll('#view-paciente .tab')[2]);document.getElementById('view-paciente').scrollIntoView();} function volver(){document.getElementById('view-paciente').classList.add('hidden');document.getElementById('view-dash').classList.remove('hidden');loadPacientes();}
+function guardarHist(){localStorage.setItem('hist_'+pacienteActual.id,document.getElementById('hist-text').value);document.getElementById('hist-msg').textContent='Historial guardado.';}
+function renderChips(){document.getElementById('chips').innerHTML=SINTOMAS.map(s=>'<span class="chip '+(sintomasSel.includes(s)?'on':'')+'" onclick="toggleSintoma(\''+s+'\')">'+s+'</span>').join('');}
+function toggleSintoma(s){if(sintomasSel.includes(s)) sintomasSel=sintomasSel.filter(x=>x!==s);else sintomasSel.push(s);renderChips();}
+function analizar(){if(!sintomasSel.length) return alert('Marca al menos 1 síntoma');let spo2=parseFloat(document.getElementById('s-spo2').value)||100;let urg='VERDE',probs=[];if(sintomasSel.includes('Dificultad respirar')||spo2<93){urg='ROJA';probs=[{label:'Requiere evaluación urgente presencial',p:72},{label:'Infección respiratoria',p:18},{label:'Otra causa',p:10}];}else if(sintomasSel.includes('Fiebre')&&sintomasSel.includes('Tos')){urg='AMARILLA';probs=[{label:'Gripe / resfriado viral (probable)',p:62},{label:'Faringitis',p:24},{label:'Evaluación presencial',p:14}];}else if(sintomasSel.includes('Fiebre')&&sintomasSel.includes('Erupción piel')){urg='AMARILLA';probs=[{label:'Exantema viral (probable)',p:48},{label:'Reacción alérgica',p:30},{label:'Dengue - requiere examen',p:22}];}else if(sintomasSel.includes('Dolor abdominal')){urg='AMARILLA';probs=[{label:'Gastroenteritis (probable)',p:58},{label:'Infección alimentaria',p:26},{label:'Evaluación presencial',p:16}];}else{probs=[{label:'Evaluación presencial recomendada',p:55},{label:'Causa viral leve',p:30},{label:'Otra causa',p:15}];}
+ultimoChequeo={urgencia:urg,probabilidades:probs,sintomas:[...sintomasSel]};
+document.getElementById('resultado').innerHTML='<div class="card"><b>Urgencia: <span class="badge '+(urg==='ROJA'?'roja':urg==='AMARILLA'?'amarilla':'verde')+'">'+urg+'</span></b>'+probs.map(pp=>'<p>'+pp.label+' - '+pp.p+'%</p><div class="bar"><div style="width:'+pp.p+'%"></div></div>').join('')+'<p><small>DEMO EDUCATIVA - NO ES UN DIAGNÓSTICO MÉDICO. Debe validarlo el médico.</small></p></div>';}
+async function guardarChequeo(){if(!ultimoChequeo) return alert('Primero analiza');let r=await fetch('/api/pacientes/'+pacienteActual.id+'/chequeos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sintomas:ultimoChequeo.sintomas,temperatura:document.getElementById('s-temp').value,spo2:document.getElementById('s-spo2').value})});let j=await r.json();if(!diagLocal[pacienteActual.id]) diagLocal[pacienteActual.id]=[];diagLocal[pacienteActual.id].unshift({urgencia:j.urgencia,probabilidades:j.probabilidades,created_at:new Date().toISOString()});renderDiag();alert('Chequeo guardado. Urgencia: '+j.urgencia);}
+function renderDiag(){let list=diagLocal[pacienteActual.id]||[];document.getElementById('list-diag').innerHTML=list.map(d=>'<div class="card"><b>'+d.urgencia+'</b> - '+d.created_at+'<br>'+(d.probabilidades||[]).map(pp=>pp.label+' '+pp.p+'%').join(' | ')+'</div>').join('')||'<p>Sin chequeos aún.</p>';}
+function guardarDiagFinal(){let t=document.getElementById('diag-final').value;if(!t) return alert('Escribe el diagnóstico final');localStorage.setItem('diagfinal_'+pacienteActual.id,t+' | Tratamiento: '+document.getElementById('trat-final').value);alert('Diagnóstico final guardado.');}
+function subirArchivo(tipo,input){let f=input.files[0];if(!f) return;let reader=new FileReader();reader.onload=function(e){if(!imagenes[pacienteActual.id]) imagenes[pacienteActual.id]=[];imagenes[pacienteActual.id].push({tipo:tipo,nombre_archivo:f.name,dataUrl:e.target.result,interpretacion:'',estado:'Pendiente de revisión',created_at:new Date().toISOString()});try{localStorage.setItem('imgs_'+pacienteActual.id, JSON.stringify(imagenes[pacienteActual.id]));}catch(err){} renderImagenes();};reader.readAsDataURL(f);input.value='';}
+function verFoto(idx){let im=imagenes[pacienteActual.id][idx];if(!im.dataUrl) return alert('Esta foto se subió en la versión vieja, solo guardó el nombre. Vuelve a subirla para poder verla.');let w=window.open('');w.document.write('<html><body style="margin:0;background:#000;text-align:center"><h2 style="color:#fff;font-family:system-ui">'+im.nombre_archivo+'</h2><img src="'+im.dataUrl+'" style="max-width:95%;max-height:85vh"><br><button onclick="window.close()" style="padding:12px 20px;margin:20px">Cerrar</button></body></html>');}
+function borrarFoto(idx){let im=imagenes[pacienteActual.id][idx];if(!confirm('¿Borrar la foto '+im.nombre_archivo+'?')) return;imagenes[pacienteActual.id].splice(idx,1);try{localStorage.setItem('imgs_'+pacienteActual.id, JSON.stringify(imagenes[pacienteActual.id]));}catch(err){} renderImagenes();}
+function renderImagenes(){let list=imagenes[pacienteActual.id]||[];let render=(tipo,el)=>{document.getElementById(el).innerHTML=list.filter(i=>i.tipo===tipo).map((im,idx)=>{let realIdx=list.indexOf(im);return '<div class="card"><b>'+im.nombre_archivo+'</b> - '+im.created_at+'<br>'+(im.dataUrl?'<img src="'+im.dataUrl+'" style="max-width:200px;max-height:150px;border-radius:8px;cursor:pointer" onclick="verFoto('+realIdx+')" title="Toca para ver grande">':'<p><small>Foto vieja sin vista previa - vuelve a subirla</small></p>')+'<br><button onclick="verFoto('+realIdx+')">👁️ VER FOTO GRANDE</button> <button class="sec" style="background:#fee2e2" onclick="borrarFoto('+realIdx+')">🗑️ BORRAR ESTA FOTO</button><br>Estado: <select onchange="cambiarEstado('+realIdx+',this.value)"><option '+(im.estado==='Pendiente de revisión'?'selected':'')+'>Pendiente de revisión</option><option '+(im.estado==='Revisado - Normal'?'selected':'')+'>Revisado - Normal</option><option '+(im.estado==='Revisado - Anormal'?'selected':'')+'>Revisado - Anormal</option><option '+(im.estado==='Requiere otro estudio'?'selected':'')+'>Requiere otro estudio</option></select><br><textarea placeholder="Interpretación del radiólogo" onchange="cambiarInterp('+realIdx+',this.value)">'+im.interpretacion+'</textarea></div>'}).join('')||'<p>0 '+tipo+' - No hay fotos aún. Toca Seleccionar archivo para subir una.</p>';};render('Laboratorio','list-lab');render('Ultrasonido','list-ultra');render('Radiografía','list-radio');}
+function cambiarEstado(idx,val){let list=imagenes[pacienteActual.id];let it=list[idx];it.estado=val;try{localStorage.setItem('imgs_'+pacienteActual.id, JSON.stringify(imagenes[pacienteActual.id]));}catch(e){}renderImagenes();document.getElementById('pac-alerta').innerHTML=tieneAnormal(pacienteActual)?'<div class="card" style="background:#fee2e2"><b>⚠️ Imagen anormal - Revisar</b></div>':'';}
+function cambiarInterp(idx,val){imagenes[pacienteActual.id][idx].interpretacion=val;try{localStorage.setItem('imgs_'+pacienteActual.id, JSON.stringify(imagenes[pacienteActual.id]));}catch(e){}}
+async function addReceta(){let d={medicamento:document.getElementById('rec-med').value,dosis:document.getElementById('rec-dosis').value,frecuencia:document.getElementById('rec-frec').value,duracion:document.getElementById('rec-dur').value,cantidad:document.getElementById('rec-cant').value,indicaciones:document.getElementById('rec-ind').value};if(!d.medicamento) return alert('Pon el medicamento');let r=await fetch('/api/pacientes/'+pacienteActual.id+'/recetas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});if(!recetasLocal[pacienteActual.id]) recetasLocal[pacienteActual.id]=[];recetasLocal[pacienteActual.id].unshift({...d,created_at:new Date().toISOString()});renderRecetas();}
+function renderRecetas(){let list=recetasLocal[pacienteActual.id]||[];document.getElementById('list-recetas').innerHTML=list.map((rec,i)=>'<div class="card"><b>'+rec.medicamento+'</b> '+rec.dosis+' - '+rec.frecuencia+' - '+rec.duracion+'<br><small>'+rec.indicaciones+'</small><br><button onclick="descargarReceta('+i+')">Descargar receta para el paciente</button></div>').join('')||'<p>Sin recetas.</p>';}
+function descargarReceta(i){let rec=recetasLocal[pacienteActual.id][i];let html='<html><body style="font-family:system-ui;padding:30px"><h1>CENTINELA MÉDICO</h1><p>Dr. '+(medico?medico.nombre:'')+' - '+(medico?medico.especialidad:'')+'</p><hr><h2>RECETA</h2><p>Paciente: '+pacienteActual.nombre+' - '+pacienteActual.edad+' años<br>Alergias: '+(pacienteActual.alergias||'Ninguna')+'</p><p><b>Medicamento:</b> '+rec.medicamento+'<br><b>Dosis:</b> '+rec.dosis+'<br><b>Frecuencia:</b> '+rec.frecuencia+'<br><b>Duración:</b> '+rec.duracion+'<br><b>Cantidad:</b> '+rec.cantidad+'<br><b>Indicaciones:</b> '+rec.indicaciones+'</p><hr><p>Firma: ____________________</p><p><small>Esta receta fue indicada por su médico. Si tiene dudas, consulte a su médico. No se automedique.</small></p></body></html>';let blob=new Blob([html],{type:'text/html'});let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='receta-'+pacienteActual.nombre+'-'+rec.medicamento+'.html';a.click();}
+async function addCita(){let d={fecha:document.getElementById('cita-fecha').value,hora:document.getElementById('cita-hora').value,motivo:document.getElementById('cita-motivo').value,tipo:document.getElementById('cita-tipo').value};if(!d.fecha) return alert('Pon la fecha');await fetch('/api/pacientes/'+pacienteActual.id+'/citas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});if(!citasLocal[pacienteActual.id]) citasLocal[pacienteActual.id]=[];citasLocal[pacienteActual.id].push({...d,paciente_nombre:pacienteActual.nombre});renderCitasPac();renderInformes();renderAgenda();}
+function renderCitasPac(){let list=citasLocal[pacienteActual.id]||[];document.getElementById('list-citas-pac').innerHTML=list.map(c=>'<div class="card">'+c.fecha+' '+c.hora+' - '+c.motivo+' ('+c.tipo+')</div>').join('')||'<p>Sin citas.</p>';}
+function renderAgenda(){let fecha=document.getElementById('agenda-fecha').value||new Date().toISOString().slice(0,10);let todas=[];Object.values(citasLocal).forEach(arr=>arr.forEach(c=>{if(c.fecha===fecha) todas.push(c)}));todas.sort((a,b)=>a.hora.localeCompare(b.hora));document.getElementById('lista-citas').innerHTML=todas.map(c=>'<div class="card"><b>'+c.hora+'</b> - '+c.paciente_nombre+' - '+c.motivo+' ('+c.tipo+')</div>').join('')||'<p>Sin citas ese día.</p>';}
+async function borrarUno(id,nombre){if(!confirm('¿Borrar a '+nombre+'? Esto no se puede deshacer.')) return;await fetch('/api/pacientes/'+id,{method:'DELETE'});pacientes=pacientes.filter(p=>p.id!=id);renderPacientes();alert('Paciente borrado.');}
+async function borrarTodos(){if(!confirm('¿SEGURO que quieres BORRAR TODOS los pacientes y empezar en CERO? Esto borra los 13 pacientes de prueba.')) return;if(!confirm('Última confirmación: ¿Borrar TODOS?')) return;let r=await fetch('/api/pacientes/clear',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({medico_id:medico.id})});let j=await r.json();if(j.ok){pacientes=[];renderPacientes();alert('Listo. Ya no tienes pacientes. Ahora empieza en cero.');}else{alert('No se pudo borrar');}}
+function exportar(){let data={medico,pacientes,imagenes,recetasLocal,citasLocal};let blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='respaldo-centinela.json';a.click();}
+check();
+let saved=localStorage.getItem('centinela_medico');if(saved){medico=JSON.parse(saved);document.getElementById('view-auth').classList.add('hidden');document.getElementById('view-dash').classList.remove('hidden');document.getElementById('top-medico').textContent='Dr. '+medico.nombre;loadPacientes();}
+
+function val(id){let v=parseFloat(document.getElementById(id).value);return isNaN(v)?null:v;}
+function estadoValor(v, min, max){if(v===null) return null;if(v<min) return 'BAJO';if(v>max) return 'ALTO';return 'NORMAL';}
+function analizarLaboratorio(){
+ let g=(id)=>{let v=parseFloat(document.getElementById(id)?.value);return isNaN(v)?null:v;};
+ let sexo=document.getElementById('diag-sexo').value;
+ let sintomasTxt=document.getElementById('diag-sintomas-txt').value||'';
+ let hb=g('lab-hb'), hto=g('lab-hto'), gr=g('lab-gr'), vcm=g('lab-vcm'), hcm=g('lab-hcm'), chcm=g('lab-chcm'), rdw=g('lab-rdw'), leuco=g('lab-leuco'), neu=g('lab-neu'), lin=g('lab-lin'), mono=g('lab-mono'), eos=g('lab-eos'), bas=g('lab-bas'), pla=g('lab-pla'), mpv=g('lab-mpv'), ret=g('lab-ret'), vsg=g('lab-vsg'), pcr=g('lab-pcr');
+ let gluc=g('lab-gluc'), a1c=g('lab-a1c'), urea=g('lab-urea'), crea=g('lab-crea'), acido=g('lab-acido'), tgo=g('lab-tgo'), tgp=g('lab-tgp'), bili=g('lab-bili'), fosf=g('lab-fosf'), prot=g('lab-prot'), alb=g('lab-alb'), col=g('lab-col'), hdl=g('lab-hdl'), ldl=g('lab-ldl'), trig=g('lab-trig'), ca=g('lab-ca'), na=g('lab-na'), k=g('lab-k'), hierro=g('lab-hierro'), ferri=g('lab-ferri'), vitd=g('lab-vitd'), b12=g('lab-b12'), tsh=g('lab-tsh'), t4=g('lab-t4');
+ let orProt=document.getElementById('lab-or-prot')?.value||'', orGluc=document.getElementById('lab-or-gluc')?.value||'', orSang=document.getElementById('lab-or-sang')?.value||'', orLeuco=g('lab-or-leuco'), orNit=document.getElementById('lab-or-nit')?.value||'', orPh=g('lab-or-ph');
+ let dengue=document.getElementById('lab-dengue')?.value||'', covid=document.getElementById('lab-covid')?.value||'', emb=document.getElementById('lab-emb')?.value||'';
+ let hayAlguno=[hb,leuco,pla,gluc,crea,tgo,col,orLeuco].some(v=>v!==null)||orProt||dengue;
+ if(!hayAlguno){alert('Escribe al menos 1 valor del examen. Puedes escribir solo hemograma, o solo química, o solo orina.');return;}
+ let hbMin=sexo==='M'?14:12, hbMax=sexo==='M'?18:16;
+ let hall=[];
+ let push=(sec,nombre,v,min,max,unidad,bajo,alto)=>{if(v===null) return;let e=v<min?'BAJO':v>max?'ALTO':'NORMAL';let col=e==='NORMAL'?'#166534':e==='ALTO'?'#991b1b':'#92400e';hall.push({sec,nombre,v,unidad,e,col,sign:e==='BAJO'?bajo:e==='ALTO'?alto:'Dentro de rango'});};
+ push('Hemograma','Hemoglobina',hb,hbMin,hbMax,'g/dL','Anemia: cansancio, palidez.','Hemoconcentración / policitemia.');
+ push('Hemograma','Hematocrito',hto,36,48,'%','Bajo con hemoglobina baja = anemia.','Alto = deshidratación o aumento de glóbulos rojos.');
+ push('Hemograma','Glóbulos rojos',gr,4.5,5.5,'millones','Bajos = anemia.','Altos = policitemia / deshidratación.');
+ push('Hemograma','VCM',vcm,80,100,'fL','Microcitosis: glóbulos pequeños, típico de falta de hierro.','Macrocitosis: glóbulos grandes, típico de falta de B12 o ácido fólico.');
+ push('Hemograma','HCM',hcm,27,33,'pg','Bajo = falta de hierro.','Alto = falta de B12 / folato.');
+ push('Hemograma','CHCM',chcm,32,36,'g/dL','Bajo = hipocromía, falta de hierro.','Alto = poco común, revisar.');
+ push('Hemograma','RDW',rdw,11.5,14.5,'%','Normal.','RDW alto = glóbulos de diferentes tamaños, muy típico de anemia por falta de hierro en fase inicial.');
+ push('Hemograma','Leucocitos',leuco,4.0,11.0,'x10³','Leucopenia: defensas bajas, viral o medicamentos.','Leucocitosis: infección / inflamación activa.');
+ push('Hemograma','Neutrófilos',neu,40,70,'%','Neutropenia: riesgo de infección.','Neutrofilia: sugiere infección bacteriana.');
+ push('Hemograma','Linfocitos',lin,20,40,'%','Linfopenia: viral, estrés.','Linfocitosis: sugiere infección viral.');
+ push('Hemograma','Monocitos',mono,2,8,'%','Bajo aislado poco común.','Monocitosis: infección en resolución / crónica / inflamación.');
+ push('Hemograma','Eosinófilos',eos,1,4,'%','Bajo no preocupante.','Eosinofilia: ALERGIA o PARÁSITOS. Si hay picazón, moco, diarrea, pensar en parásitos.');
+ push('Hemograma','Basófilos',bas,0,1,'%','Normal.','Basofilia: alergia / inflamación crónica.');
+ push('Hemograma','Plaquetas',pla,150,400,'x10³','Trombocitopenia: riesgo de sangrado, moretones.','Trombocitosis: si es leve y hay infección, casi siempre REACTIVA.');
+ push('Hemograma','MPV',mpv,7.5,11.5,'fL','Plaquetas pequeñas.','MPV alto con plaquetas altas = producción activa, apoya trombocitosis reactiva.');
+ push('Hemograma','Reticulocitos',ret,0.5,2.5,'%','Médula no está respondiendo bien.','Alto = médula trabajando fuerte, está compensando una anemia o sangrado.');
+ push('Hemograma','VSG',vsg,0,20,'mm/h','Normal.','VSG alta = inflamación en el cuerpo, no dice dónde, hay que buscar la causa.');
+ push('Hemograma','PCR',pcr,0,5,'mg/L','Normal.','PCR alta = inflamación / infección activa.');
+ push('Química','Glucosa',gluc,70,110,'mg/dL','Hipoglucemia: mareo, sudor frío.','Hiperglucemia: revisar diabetes, ayuno, estrés.');
+ push('Química','Hemoglobina A1c',a1c,4,5.6,'%','Baja no preocupante.','A1c 5.7-6.4 = prediabetes. Más de 6.5 = diabetes.');
+ push('Química','Urea',urea,15,40,'mg/dL','Baja: dieta baja en proteína, hígado.','Urea alta: riñón trabajando mal, deshidratación, dieta alta en proteína.');
+ push('Química','Creatinina',crea,0.6,1.2,'mg/dL','Baja: poca masa muscular.','Creatinina alta: RIÑÓN alterado. Hay que vigilar riñón.');
+ push('Química','Ácido úrico',acido, sexo==='M'?3.5:2.6, sexo==='M'?7.2:6.0,'mg/dL','Bajo no preocupante.','Ácido úrico alto: riesgo de GOTA, dolor en articulaciones, cálculos en riñón.');
+ push('Química','TGO / AST',tgo,10,40,'U/L','Normal.','TGO alto: hígado o músculo dañado. Revisar alcohol, medicamentos, hígado graso.');
+ push('Química','TGP / ALT',tgp,10,40,'U/L','Normal.','TGP alto: HÍGADO alterado. Lo más frecuente es hígado graso, alcohol, medicamentos.');
+ push('Química','Bilirrubina total',bili,0.2,1.2,'mg/dL','Normal.','Bilirrubina alta: hígado o vesícula, puede dar piel amarilla.');
+ push('Química','Fosfatasa alcalina',fosf,40,150,'U/L','Normal.','Alta: hígado o hueso. En niños puede ser normal por crecimiento.');
+ push('Química','Proteínas totales',prot,6.0,8.3,'g/dL','Bajas: desnutrición, hígado, pérdida por riñón.','Altas: deshidratación, inflamación crónica.');
+ push('Química','Albúmina',alb,3.5,5.0,'g/dL','Albúmina baja: desnutrición, hígado, riñón, inflamación.','Alta: deshidratación.');
+ push('Química','Colesterol total',col,0,200,'mg/dL','','Alto: riesgo cardiovascular. Revisar dieta, ejercicio, LDL.');
+ push('Química','HDL bueno',hdl,40,300,'mg/dL','HDL bajo: menos protección del corazón.','HDL alto es bueno, protege.');
+ push('Química','LDL malo',ldl,0,130,'mg/dL','','LDL alto: el colesterol malo, se pega en las arterias. Riesgo de infarto si se deja alto.');
+ push('Química','Triglicéridos',trig,0,150,'mg/dL','','Triglicéridos altos: dieta con azúcar, alcohol, riesgo de pancreatitis si está muy alto.');
+ push('Química','Calcio',ca,8.5,10.5,'mg/dL','Calcio bajo: calambres, hormigueo.','Calcio alto: tiroides, vitamina D, cáncer. Revisar.');
+ push('Química','Sodio',na,135,145,'mEq/L','Sodio bajo: puede dar mareo, confusión, náuseas.','Sodio alto: deshidratación.');
+ push('Química','Potasio',k,3.5,5.0,'mEq/L','Potasio bajo: calambres, debilidad, riesgo del corazón.','Potasio alto: riñón alterado, peligroso para el corazón. Urgente si está muy alto.');
+ push('Química','Hierro',hierro,60,170,'µg/dL','Hierro bajo: anemia por falta de hierro, cansancio.','Hierro alto: exceso, revisar.');
+ push('Química','Ferritina',ferri, sexo==='M'?30:15, sexo==='M'?300:200,'ng/mL','Ferritina baja: RESERVA DE HIERRO VACÍA, anemia por falta de hierro aunque la hemoglobina aún esté normal.','Ferritina alta: inflamación, exceso de hierro.');
+ push('Química','Vitamina D',vitd,30,100,'ng/mL','Vitamina D baja: dolor de huesos, cansancio, defensas bajas. Muy común.','Vitamina D alta: exceso de suplemento.');
+ push('Química','Vitamina B12',b12,200,900,'pg/mL','B12 baja: anemia con VCM alto, hormigueo, falta de memoria.','B12 alta: suplemento.');
+ push('Química','TSH Tiroides',tsh,0.4,4.0,'mU/L','TSH baja: hipertiroidismo, nervios, pérdida de peso, palpitaciones.','TSH alta: HIPOTIROIDISMO, cansancio, aumento de peso, frío, estreñimiento.');
+ push('Química','T4 libre',t4,0.8,1.8,'ng/dL','Baja con TSH alta = hipotiroidismo.','Alta con TSH baja = hipertiroidismo.');
+
+ let interp=[];
+ if(leuco!==null && leuco>11) interp.push('Leucocitosis: infección / inflamación activa.');
+ if(mono!==null && mono>8) interp.push('Monocitosis: infección en resolución / crónica.');
+ if(pla!==null && pla>400 && mpv!==null && mpv>11.5) interp.push('Trombocitosis leve con MPV alto: patrón REACTIVO, médula produciendo plaquetas por inflamación.');
+ if(hb!==null && hb<hbMin) { if(vcm!==null && vcm<80) interp.push('Anemia microcítica: glóbulos pequeños (VCM bajo) + hemoglobina baja = MUY TÍPICO DE FALTA DE HIERRO.'); else if(vcm!==null && vcm>100) interp.push('Anemia macrocítica: glóbulos grandes (VCM alto) = falta de B12 o ácido fólico.'); else interp.push('Anemia: hemoglobina baja, revisar hierro y causa.'); }
+ if(eos!==null && eos>4) interp.push('Eosinofilia: pensar en ALERGIA o PARÁSITOS intestinales. Preguntar por picazón, moco, diarrea.');
+ if(crea!==null && crea>1.2) interp.push('Creatinina alta: RIÑÓN alterado. Vigilar, repetir, revisar medicamentos que dañan riñón.');
+ if(tgp!==null && tgp>40 || tgo!==null && tgo>40) interp.push('Transaminasas altas: HÍGADO alterado. Lo más frecuente: hígado graso, alcohol, medicamentos.');
+ if(col!==null && col>200 || ldl!==null && ldl>130) interp.push('Colesterol / LDL alto: riesgo cardiovascular. Dieta, ejercicio, controlar.');
+ if(trig!==null && trig>150) interp.push('Triglicéridos altos: azúcar, alcohol, sobrepeso.');
+ if(gluc!==null && gluc>110) interp.push('Glucosa alta en ayunas: revisar prediabetes / diabetes con A1c.');
+ if(a1c!==null && a1c>=5.7) interp.push('A1c '+a1c+'%: '+(a1c>=6.5?'compatible con DIABETES.':'prediabetes.'));
+ if(tsh!==null && tsh>4.0) interp.push('TSH alta: HIPOTIROIDISMO probable. Cansancio, aumento de peso, frío.');
+ if(tsh!==null && tsh<0.4) interp.push('TSH baja: HIPERTIROIDISMO probable. Nervios, palpitaciones, pérdida de peso.');
+ if(vitd!==null && vitd<30) interp.push('Vitamina D baja: muy común, da dolor de huesos, cansancio, defensas bajas.');
+ if(ferri!==null && ferri<15) interp.push('Ferritina muy baja: reserva de hierro vacía, aunque la hemoglobina aún esté normal, ya hay falta de hierro.');
+ if(k!==null && (k<3.5 || k>5.0)) interp.push('Potasio alterado: '+(k<3.5?'bajo, riesgo de calambres y corazón.':'alto, riesgo del corazón, revisar riñón.'));
+ if(pcr!==null && pcr>5) interp.push('PCR alta: inflamación activa.');
+ if(orProt && orProt!=='Negativo') interp.push('Proteínas en orina POSITIVO: riñón filtrando proteína, no es normal. Revisar riñón.');
+ if(orSang==='Positivo') interp.push('Sangre en orina: puede ser infección urinaria, cálculo, o problema de riñón. Revisar.');
+ if(orNit==='Positivo' || (orLeuco!==null && orLeuco>5)) interp.push('Orina con leucocitos / nitritos positivos: INFECCIÓN URINARIA probable. Orinar con ardor, frecuente.');
+ if(dengue==='Positivo') interp.push('Dengue POSITIVO: vigilar plaquetas, sangrado, fiebre, hidratación.');
+ if(covid==='Positivo') interp.push('COVID / Influenza POSITIVO: infección viral confirmada.');
+ if(emb==='Positivo') interp.push('Prueba de embarazo POSITIVA.');
+ if(interp.length===0) interp.push('No hay patrón de alarma claro en los valores que escribiste. Puede ser cuadro inicial o valores dentro de rango. Correlacionar con síntomas y examen físico.');
+
+ let causas=[];
+ if(leuco!==null && leuco>11) causas.push('Infección bacteriana o inflamación');
+ if(eos!==null && eos>4) causas.push('Alergia o parásitos');
+ if(hb!==null && hb<hbMin) causas.push('Anemia por falta de hierro / B12 / crónica');
+ if(crea!==null && crea>1.2) causas.push('Alteración renal');
+ if(tgp!==null && tgp>40) causas.push('Hígado graso / hígado alterado');
+ if(tsh!==null && tsh>4) causas.push('Hipotiroidismo');
+ if(orNit==='Positivo') causas.push('Infección urinaria');
+ if(dengue==='Positivo') causas.push('Dengue');
+ if(causas.length===0) causas.push('Sin patrón claro - correlacionar con síntomas');
+
+ // Agrupar hallazgos por sección
+ let porSec={};
+ hall.forEach(h=>{if(!porSec[h.sec]) porSec[h.sec]=[];porSec[h.sec].push(h);});
+ let hallHtml=Object.keys(porSec).map(sec=>'<h4>'+sec+'</h4>'+porSec[sec].map(h=>'<p><b>'+h.nombre+':</b> '+h.v+' '+h.unidad+' - <span style="color:'+h.col+';font-weight:700">'+h.e+'</span><br><small>'+h.sign+'</small></p>').join('')).join('');
+ let htmlInforme='<div class="card" style="border:2px solid #ea580c"><h3>📋 INFORME COMPLETO - '+(pacienteActual?pacienteActual.nombre:'Paciente')+'</h3><p><b>Síntomas:</b> '+(sintomasTxt||'No anotados')+'</p>'+hallHtml+'<h4>Interpretación general:</h4><ol>'+interp.map(x=>'<li>'+x+'</li>').join('')+'</ol><h4>Posibles causas:</h4><ol>'+causas.map(x=>'<li>'+x+'</li>').join('')+'</ol><h4>Qué hacer:</h4><ul><li>Correlacionar con síntomas y examen físico. Este informe no reemplaza al médico.</li><li>Si hay infección: tratar la causa, no solo la fiebre.</li><li>Si hay trombocitosis reactiva: repetir hemograma en 2-4 semanas.</li><li>Si hay anemia: revisar hierro, ferritina, B12.</li><li>Si hay riñón, hígado, potasio o glucosa muy alterados: evaluación presencial.</li><li>Si hay sangrado, dificultad para respirar, dolor fuerte, fiebre alta que no baja: urgente.</li></ul><p><small>INFORME DE AYUDA - Debe validarlo el médico. No es diagnóstico definitivo al 100%.</small></p></div>';
+ document.getElementById('informe-diag').innerHTML=htmlInforme;
+ window._ultimoInforme=htmlInforme;
+ window._ultimoInformeTexto=hall.map(h=>h.nombre+': '+h.v+' '+h.unidad+' '+h.e).join(' | ')+' || '+interp.join(' ');
+}
+function guardarInforme(){
+  if(!window._ultimoInforme) return alert('Primero toca ANALIZAR EXAMEN COMPLETO');
+  guardarInformeAuto();
+  alert('Informe guardado en el historial. Ya no se borra aunque hagas otro análisis.');
+}
+function guardarInformeAuto(){
+  if(!window._ultimoInforme || !pacienteActual) return;
+  let arr=JSON.parse(localStorage.getItem('informes_'+pacienteActual.id)||'[]');
+  // Evitar duplicado si se toca ANALIZAR 2 veces seguidas con los mismos valores: si el último es igual, no duplicar
+  if(arr.length>0 && arr[0].texto===window._ultimoInformeTexto) return;
+  arr.unshift({fecha:new Date().toLocaleString('es-GT'), texto:window._ultimoInformeTexto, html:window._ultimoInforme, numero:arr.length+1});
+  localStorage.setItem('informes_'+pacienteActual.id, JSON.stringify(arr));
+  renderInformes();
+}
+function renderInformes(){
+  let arr=JSON.parse(localStorage.getItem('informes_'+(pacienteActual?pacienteActual.id:0))||'[]');
+  let head='<p><b>Historial del paciente: '+arr.length+' análisis guardados. Ninguno se borra solo.</b></p>';
+  if(arr.length) head+='<button class="sec" style="background:#fee2e2" onclick="borrarTodosInformes(false)">🗑️ BORRAR TODO EL HISTORIAL (solo si tú lo decides)</button> <button class="sec" style="background:#fde68a" onclick="borrarAnalisisDePacienteQueNoLlego()">Paciente ya no llegó - Borrar sus análisis</button></button><br>';
+  document.getElementById('list-informes').innerHTML=head+arr.map((it,i)=>'<div class="card" style="border-left:4px solid #2563eb"><b>Análisis #'+(arr.length-i)+' - '+it.fecha+'</b><br>'+it.texto+'<br><button onclick="verInforme('+i+')">Ver informe completo</button> <button class="sec" style="background:#fee2e2" onclick="borrarUnInforme('+i+')">🗑️ Borrar solo este análisis</button></div>').join('')||'<p>Sin análisis guardados aún. Cuando toques ANALIZAR, el primero se guarda aquí.</p>';
+}
+function verInforme(i){let arr=JSON.parse(localStorage.getItem('informes_'+pacienteActual.id)||'[]');let w=window.open('');w.document.write(arr[i].html);}
+
+async function leerFotoOCR(){
+  let inp=document.getElementById('ocr-file');
+  let f=inp.files[0];
+  if(!f) return alert('Primero elige la foto. Toca Seleccionar archivo.');
+  let msg=document.getElementById('ocr-msg');
+  msg.textContent='Revisando lector...';
+  if(typeof Tesseract==='undefined'){msg.textContent='El lector no cargó por internet. Revisa tu conexión a internet y vuelve a intentar.';return;}
+  msg.textContent='Leyendo foto... espera 10-20 segundos, no cierres la ventana.';
+  try{
+    let worker = await Tesseract.createWorker('spa+eng');
+    let res = await worker.recognize(f);
+    await worker.terminate();
+    let texto=res.data.text||'';
+    document.getElementById('ocr-texto').textContent=texto;
+    if(!texto.trim()){msg.textContent='Leí la foto pero salió en blanco. Intenta con una foto más clara o escribe los valores a mano.';return;}
+    msg.textContent='Foto leída. Revisa los valores que llenó abajo.';
+    llenarDesdeTexto(texto);
+  }catch(e){msg.textContent='No se pudo leer la foto. Intenta con una foto más clara: intenta con una foto más clara de la hoja impresa. Error: '+e.message;}
+}
+function buscarValor(texto,patrones){
+  let t=texto.toLowerCase();
+  for(let p of patrones){
+    let re=new RegExp(p+'[^0-9\n]{0,20}([0-9]+[.,][0-9]+|[0-9]+)','i');
+    let m=t.match(re);
+    if(m){let v=parseFloat(m[1].replace(',','.')); if(!isNaN(v)) return v;}
+  }
+  return null;
+}
+function llenarDesdeTexto(texto){
+  let mapa=[['lab-hb',['hemoglobina','hb']],['lab-hto',['hematocrito']],['lab-vcm',['vcm']],['lab-leuco',['leucocitos','wbc']],['lab-neu',['neutrofilos']],['lab-lin',['linfocitos']],['lab-mono',['monocitos']],['lab-eos',['eosinofilos']],['lab-pla',['plaquetas','plt']],['lab-mpv',['mpv']],['lab-gluc',['glucosa']],['lab-urea',['urea']],['lab-crea',['creatinina']],['lab-tgo',['tgo','ast']],['lab-tgp',['tgp','alt']],['lab-col',['colesterol total']],['lab-ldl',['ldl']],['lab-hdl',['hdl']],['lab-trig',['trigliceridos']],['lab-tsh',['tsh']]];
+  let n=0;
+  mapa.forEach(([id,pats])=>{let v=buscarValor(texto,pats); if(v!==null){let el=document.getElementById(id); if(el && !el.value){el.value=v; n++;}}});
+  document.getElementById('ocr-msg').textContent = n===0 ? 'La foto se leyó pero no encontré los números. Revisa el texto abajo y escribe a mano.' : 'Listo. Llené '+n+' valores solos. Revisa cada uno. Si uno está mal, bórralo y escribe el correcto. Luego toca ANALIZAR.';
+}
+
+function borrarTodosValores(){
+  if(!confirm('¿Borrar todos los valores escritos?')) return;
+  document.querySelectorAll('#p-diagnosticador input[type="number"]').forEach(i=>i.value='');
+  document.querySelectorAll('#p-diagnosticador select').forEach(s=>{if(s.id && s.id.startsWith('lab-or')) s.value='';});
+  document.getElementById('informe-diag').innerHTML='';
+  window._ultimoInforme=null; window._ultimoInformeTexto='';
+  // HISTORIAL: cada análisis se guarda solo, no borra el anterior
+  guardarInformeAuto();
+  document.getElementById('informe-diag').insertAdjacentHTML('afterbegin','<p style="background:#dcfce7;padding:8px;border-radius:8px"><b>✅ Este análisis ya quedó guardado en el historial de abajo.</b> Puedes hacer otro análisis y el anterior NO se borra.</p>');
+  let msg=document.getElementById('ocr-msg'); if(msg) msg.textContent='Valores borrados. Ahora también puedes borrar los informes guardados de abajo si quieres.';
+  // Preguntar si también quiere borrar los informes guardados del examen anterior
+  if(confirm('¿También quieres borrar los INFORMES GUARDADOS del examen anterior que salen abajo? Si le das que SÍ, ya no van a salir. Si le das que NO, se quedan guardados.')){borrarTodosInformes(true);}
+}
+function borrarUnInforme(i){
+  let arr=JSON.parse(localStorage.getItem('informes_'+pacienteActual.id)||'[]');
+  if(!confirm('¿Borrar este informe guardado?')) return;
+  arr.splice(i,1);
+  localStorage.setItem('informes_'+pacienteActual.id, JSON.stringify(arr));
+  renderInformes();
+}
+function borrarTodosInformes(silencioso){
+  if(!silencioso && !confirm('¿Borrar TODOS los informes guardados de este paciente?')) return;
+  localStorage.removeItem('informes_'+pacienteActual.id);
+  renderInformes();
+  if(!silencioso) alert('Informes guardados borrados.');
+}
+</script></body></html>
