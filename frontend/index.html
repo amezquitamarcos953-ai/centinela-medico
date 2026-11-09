@@ -262,8 +262,52 @@ const SINTOMAS=["Fiebre","Tos","Dolor de cabeza","Dolor abdominal","Erupción pi
 function showTab(n,el){document.querySelectorAll('#view-dash .tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');document.getElementById('tab-pacientes').classList.toggle('hidden',n!=='pacientes');document.getElementById('tab-agenda').classList.toggle('hidden',n!=='agenda'); if(n==='agenda') renderAgenda();}
 function ptab(n,el){document.querySelectorAll('#view-paciente .tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');['historial','sintomas','examenes','diagnosticos','diagnosticador','recetas','citas'].forEach(k=>document.getElementById('p-'+k).classList.toggle('hidden',k!==n));}
 async function check(){try{let r=await fetch('/api/health');let j=await r.json();document.getElementById('top-instance').textContent=j.instance;}catch(e){}}
-async function register(){let r=await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nombre:document.getElementById('r-nombre').value,especialidad:document.getElementById('r-esp').value,correo:document.getElementById('r-correo').value,password:document.getElementById('r-pass').value})});let j=await r.json();document.getElementById('r-msg').textContent=j.ok?'Cuenta creada. Ahora inicia sesión.':(j.error||'Error');}
-async function login(){let r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({correo:document.getElementById('l-correo').value,password:document.getElementById('l-pass').value})});let j=await r.json();if(!j.ok){document.getElementById('l-msg').textContent=j.error;return;}medico=j.medico;localStorage.setItem('centinela_medico',JSON.stringify(medico));document.getElementById('view-auth').classList.add('hidden');document.getElementById('view-dash').classList.remove('hidden');document.getElementById('top-medico').textContent='Dr. '+medico.nombre;loadPacientes();}
+async function register(){
+  let nombre=document.getElementById('r-nombre').value.trim();
+  let esp=document.getElementById('r-esp').value.trim();
+  let correo=document.getElementById('r-correo').value.trim();
+  let pw=document.getElementById('r-pass').value;
+  if(!nombre){alert('Te falta poner tu Nombre. Pon Marcos y vuelve a tocar Crear cuenta.'); return;}
+  if(!correo){alert('Te falta poner tu Correo.'); return;}
+  if(pw.length<8){alert('Tu contraseña tiene menos de 8 letras. Pon una como Marcos2026! y vuelve a tocar Crear cuenta.'); return;}
+  try{
+    let r=await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nombre:nombre,especialidad:esp,correo:correo,password:pw})});
+    let j=await r.json();
+    if(j.ok){
+      alert('¡Cuenta creada! Ahora te voy a meter solo.');
+      // Entrar solo, sin tener que bajar a Ingresar
+      document.getElementById('l-correo').value=correo;
+      document.getElementById('l-pass').value=pw;
+      await login();
+      return;
+    } else {
+      // Si ya tiene cuenta, decirle que use Ingresar de abajo
+      if((j.error||'').includes('ya tiene cuenta')){
+        alert('Ese correo YA tiene cuenta. No le des a Crear cuenta. Baja a la parte de abajo, pon el mismo correo y contraseña y dale a Ingresar.');
+        document.getElementById('l-correo').value=correo;
+        document.getElementById('l-pass').value=pw;
+      } else {
+        alert('No se pudo crear: '+(j.error||'Error. Revisa tu contraseña: debe tener mayúscula, minúscula, número y símbolo, como Marcos2026!'));
+      }
+      document.getElementById('r-msg').textContent=j.error||'Error';
+    }
+  }catch(e){ alert('No pude conectar con el servidor. Espera 30 segundos y vuelve a tocar Crear cuenta. Error: '+e.message); }
+}
+async function login(){
+  let correo=document.getElementById('l-correo').value.trim();
+  let pw=document.getElementById('l-pass').value;
+  if(!correo || !pw){alert('Pon tu correo y tu contraseña abajo y dale a Ingresar.'); return;}
+  try{
+    let r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({correo:correo,password:pw})});
+    let j=await r.json();
+    if(!j.ok){alert('No pude entrar: '+(j.error||'Correo o contraseña incorrectos')+'. Si es la primera vez, crea la cuenta arriba.'); document.getElementById('l-msg').textContent=j.error; return;}
+    medico=j.medico; localStorage.setItem('centinela_medico',JSON.stringify(medico));
+    document.getElementById('view-auth').classList.add('hidden');
+    document.getElementById('view-dash').classList.remove('hidden');
+    document.getElementById('top-medico').textContent='Dr. '+medico.nombre;
+    await loadPacientes();
+  }catch(e){ alert('No pude conectar. Espera 30 segundos y vuelve a tocar Ingresar.'); }
+}
 function logout(){medico=null;localStorage.removeItem('centinela_medico');document.getElementById('view-dash').classList.add('hidden');document.getElementById('view-paciente').classList.add('hidden');document.getElementById('view-auth').classList.remove('hidden');}
 async function loadPacientes(){
   if(!medico) return;
