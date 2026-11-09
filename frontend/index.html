@@ -6,7 +6,7 @@ async function leerFotoOCR(){
   if(!f) return alert('Primero elige la foto. Toca Seleccionar archivo.');
   let msg=document.getElementById('ocr-msg');
   msg.textContent='Revisando lector...';
-  if(typeof Tesseract==='undefined'){msg.textContent='El lector no cargó por internet. Usa el botón de abajo: COPIA EL TEXTO DE GOOGLE Y PÉGALO.';return;}
+  if(typeof Tesseract==='undefined'){msg.textContent='El lector no cargó por internet. Revisa tu conexión a internet y vuelve a intentar.';return;}
   msg.textContent='Leyendo foto... espera 10-20 segundos, no cierres la ventana.';
   try{
     let worker = await Tesseract.createWorker('spa+eng');
@@ -17,7 +17,7 @@ async function leerFotoOCR(){
     if(!texto.trim()){msg.textContent='Leí la foto pero salió en blanco. Intenta con una foto más clara o escribe los valores a mano.';return;}
     msg.textContent='Foto leída. Revisa los valores que llenó abajo.';
     llenarDesdeTexto(texto);
-  }catch(e){msg.textContent='No se pudo leer la foto. Usa la opción de pegar texto: copia el texto de Google y pégalo abajo. Error: '+e.message;}
+  }catch(e){msg.textContent='No se pudo leer la foto. Intenta con una foto más clara: intenta con una foto más clara de la hoja impresa. Error: '+e.message;}
 }
 function buscarValor(texto,patrones){
   let t=texto.toLowerCase();
@@ -34,13 +34,7 @@ function llenarDesdeTexto(texto){
   mapa.forEach(([id,pats])=>{let v=buscarValor(texto,pats); if(v!==null){let el=document.getElementById(id); if(el && !el.value){el.value=v; n++;}}});
   document.getElementById('ocr-msg').textContent = n===0 ? 'La foto se leyó pero no encontré los números. Revisa el texto abajo y escribe a mano.' : 'Listo. Llené '+n+' valores solos. Revisa cada uno. Si uno está mal, bórralo y escribe el correcto. Luego toca ANALIZAR.';
 }
-function llenarConTextoPegado(){
-  let texto=document.getElementById('texto-pegado').value||'';
-  if(!texto.trim()) return alert('Primero pega el texto del examen en el cuadrito. Puedes copiarlo de Google.');
-  document.getElementById('ocr-texto').textContent=texto;
-  llenarDesdeTexto(texto);
-  document.getElementById('ocr-msg').textContent='Texto pegado y valores llenados. Revisa cada uno, si uno está mal bórralo y escribe el correcto.';
-}
+
 function borrarTodosValores(){if(!confirm('¿Borrar todos los valores escritos?')) return;document.querySelectorAll('#p-diagnosticador input[type="number"]').forEach(i=>i.value='');document.getElementById('informe-diag').innerHTML='';document.getElementById('ocr-msg').textContent='Valores borrados. Puedes volver a subir la foto o escribirlos a mano.';}
 </script></head>
 <body><div class="top"><b>CENTINELA MÉDICO</b> <span id="top-medico"></span> <span style="float:right" id="top-instance"></span></div>
@@ -72,9 +66,9 @@ function borrarTodosValores(){if(!confirm('¿Borrar todos los valores escritos?'
 <p>Sube la foto del examen. La app la lee y llena sola los espacios. Si un número lo copia mal, lo borras y lo escribes bien.</p>
 <input type="file" id="ocr-file" accept="image/*,.pdf">
 <button onclick="leerFotoOCR()" style="background:#2563eb">📸 LEER FOTO Y LLENAR SOLA</button>
-<p id="ocr-msg"></p><div style="background:#fef9c3;padding:10px;border-radius:8px;margin-top:8px"><b>Si el botón de arriba no lee la foto:</b><br>1. Abre la misma foto en Google, copia el texto.<br>2. Pégalo aquí y toca LLENAR CON ESE TEXTO.<br><textarea id="texto-pegado" rows="4" placeholder="Pega aquí el texto del examen que copiaste de Google..."></textarea><button onclick="llenarConTextoPegado()" style="background:#ca8a04">LLENAR CON ESE TEXTO PEGADO</button></div>
+<p id="ocr-msg"></p>
 <div id="ocr-texto" style="background:#fff;padding:10px;border-radius:8px;max-height:120px;overflow:auto;font-size:12px"></div>
-<p><small>LECTOR DE FOTO - Todo se queda en tu computadora. A veces confunde 1 con 7 o 0 con O. Revisa siempre.</small></p>
+<p><small>LECTOR DE FOTO - Sube la foto de la hoja impresa del laboratorio, de frente y con buena luz. Todo se queda en tu computadora. Revisa siempre los números.</small></p>
 </div>
 
 <p>Escribe los valores del hemograma / laboratorio tal como salen en la hoja. No subas foto, escribe los números. La app los compara con valores de referencia y te da el informe completo.</p>
@@ -334,7 +328,7 @@ async function leerFotoOCR(){
   if(!f) return alert('Primero elige la foto. Toca Seleccionar archivo.');
   let msg=document.getElementById('ocr-msg');
   msg.textContent='Revisando lector...';
-  if(typeof Tesseract==='undefined'){msg.textContent='El lector no cargó por internet. Usa el botón de abajo: COPIA EL TEXTO DE GOOGLE Y PÉGALO.';return;}
+  if(typeof Tesseract==='undefined'){msg.textContent='El lector no cargó por internet. Revisa tu conexión a internet y vuelve a intentar.';return;}
   msg.textContent='Leyendo foto... espera 10-20 segundos, no cierres la ventana.';
   try{
     let worker = await Tesseract.createWorker('spa+eng');
@@ -345,7 +339,7 @@ async function leerFotoOCR(){
     if(!texto.trim()){msg.textContent='Leí la foto pero salió en blanco. Intenta con una foto más clara o escribe los valores a mano.';return;}
     msg.textContent='Foto leída. Revisa los valores que llenó abajo.';
     llenarDesdeTexto(texto);
-  }catch(e){msg.textContent='No se pudo leer la foto. Usa la opción de pegar texto: copia el texto de Google y pégalo abajo. Error: '+e.message;}
+  }catch(e){msg.textContent='No se pudo leer la foto. Intenta con una foto más clara: intenta con una foto más clara de la hoja impresa. Error: '+e.message;}
 }
 function buscarValor(texto,patrones){
   let t=texto.toLowerCase();
@@ -362,12 +356,6 @@ function llenarDesdeTexto(texto){
   mapa.forEach(([id,pats])=>{let v=buscarValor(texto,pats); if(v!==null){let el=document.getElementById(id); if(el && !el.value){el.value=v; n++;}}});
   document.getElementById('ocr-msg').textContent = n===0 ? 'La foto se leyó pero no encontré los números. Revisa el texto abajo y escribe a mano.' : 'Listo. Llené '+n+' valores solos. Revisa cada uno. Si uno está mal, bórralo y escribe el correcto. Luego toca ANALIZAR.';
 }
-function llenarConTextoPegado(){
-  let texto=document.getElementById('texto-pegado').value||'';
-  if(!texto.trim()) return alert('Primero pega el texto del examen en el cuadrito. Puedes copiarlo de Google.');
-  document.getElementById('ocr-texto').textContent=texto;
-  llenarDesdeTexto(texto);
-  document.getElementById('ocr-msg').textContent='Texto pegado y valores llenados. Revisa cada uno, si uno está mal bórralo y escribe el correcto.';
-}
+
 function borrarTodosValores(){if(!confirm('¿Borrar todos los valores escritos?')) return;document.querySelectorAll('#p-diagnosticador input[type="number"]').forEach(i=>i.value='');document.getElementById('informe-diag').innerHTML='';document.getElementById('ocr-msg').textContent='Valores borrados. Puedes volver a subir la foto o escribirlos a mano.';}
 </script></body></html>
