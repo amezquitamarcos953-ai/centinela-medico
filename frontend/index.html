@@ -491,41 +491,7 @@ function analizarLaboratorio(){
  window._ultimoInformeTexto=hall.map(h=>h.nombre+': '+h.v+' '+h.unidad+' '+h.e).join(' | ')+' || '+interp.join(' ');
 }
 function guardarInforme(){
-  if(!window._ultimoInforme) return alert('Primero toca 
-<h3>5. EXAMEN DE HECES - Coprológico</h3>
-<p><small>Igual que orina: color, moco, sangre, parásitos, etc. El lector también entiende (+) y NEGATIVO.</small></p>
-<input id="lab-heces-color" placeholder="Color heces - ej. Café / Amarillo / Verde">
-<select id="lab-heces-consistencia"><option value="">Consistencia - elige</option><option>Formada</option><option>Blanda</option><option>Líquida</option><option>Dura</option></select>
-<select id="lab-heces-moco"><option value="">Moco - elige</option><option>Negativo</option><option>(+)</option><option>(++)</option><option>(+++)</option></select>
-<select id="lab-heces-sangre"><option value="">Sangre en heces - elige</option><option>Negativo</option><option>(+)</option><option>(++)</option><option>Visible</option></select>
-<select id="lab-heces-parasitos"><option value="">Parásitos - elige</option><option>Negativo</option><option>Positivo</option></select>
-<input id="lab-heces-parasito-tipo" placeholder="Qué parásito salió - ej. Giardia / Áscaris / Ameba">
-<input id="lab-heces-huevos" placeholder="Huevos de parásitos - ej. Positivo / Negativo">
-<input id="lab-heces-leuco" placeholder="Leucocitos en heces - ej. 1-2 /campo / Negativo">
-<input id="lab-heces-grasa" placeholder="Grasa en heces - ej. Negativo / (+) ">
-<input id="lab-heces-ph" placeholder="pH heces - ej. 6.5">
-<select id="lab-heces-sangre-oculta"><option value="">Sangre oculta - elige</option><option>Negativo</option><option>Positivo</option></select>
-
-<h3>6. CULTIVOS Y OTROS EXÁMENES PARECIDOS</h3>
-<p><small>Esputo, exudado de garganta, cultivo vaginal, cultivo de herida. Todos se llenan igual.</small></p>
-<select id="lab-cultivo-tipo"><option value="">Tipo de cultivo - elige</option><option>Esputo</option><option>Exudado faríngeo / Garganta</option><option>Cultivo vaginal</option><option>Cultivo de orina</option><option>Cultivo de herida</option><option>Cultivo de sangre / Hemocultivo</option></select>
-<input id="lab-cultivo-germen" placeholder="Qué germen salió - ej. E. coli / Streptococcus / Candida">
-<select id="lab-cultivo-resultado"><option value="">Resultado cultivo - elige</option><option>Negativo</option><option>Positivo</option><option>Contaminada</option></select>
-<input id="lab-cultivo-antibiotico" placeholder="Antibiótico que sí le hace - ej. Amoxicilina / según antibiograma">
-<input id="lab-esputo-color" placeholder="Esputo - Color - ej. Amarillo / Verde / Transparente">
-<select id="lab-esputo-sangre"><option value="">Esputo - Sangre - elige</option><option>Negativo</option><option>(+)</option><option>Visible</option></select>
-<input id="lab-bk" placeholder="BK / Tuberculosis - ej. Negativo / Positivo / (+) ">
-
-<h3>7. OTROS VALORES QUE YA TIENE EL DIAGNOSTICADOR Y A VECES FALTAN</h3>
-<p><small>Estos ya estaban, pero te los dejo juntos para que no los busques.</small></p>
-<input id="lab-hb2" placeholder="Hemoglobina g/dL - ej. 12.5 (mismo que arriba)">
-<input id="lab-hba1c2" placeholder="HbA1c % - ej. 5.7">
-<input id="lab-ferritina2" placeholder="Ferritina ng/mL - ej. 45">
-<input id="lab-vitd2" placeholder="Vitamina D ng/mL - ej. 30">
-<input id="lab-b12-2" placeholder="Vitamina B12 pg/mL - ej. 350">
-<input id="lab-vsg2" placeholder="VSG mm/h - ej. 15">
-<input id="lab-pcr2" placeholder="PCR mg/L - ej. 5">
-<br><button onclick="analizarLaboratorio()">ANALIZAR EXAMEN COMPLETO');
+  if(!window._ultimoInforme) return alert('Primero toca ANALIZAR EXAMEN COMPLETO');
   guardarInformeAuto();
   alert('Informe guardado en el historial. Ya no se borra aunque hagas otro análisis.');
 }
