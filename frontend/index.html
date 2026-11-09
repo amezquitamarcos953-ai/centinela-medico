@@ -265,7 +265,7 @@ async function check(){try{let r=await fetch('/api/health');let j=await r.json()
 async function register(){let r=await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nombre:document.getElementById('r-nombre').value,especialidad:document.getElementById('r-esp').value,correo:document.getElementById('r-correo').value,password:document.getElementById('r-pass').value})});let j=await r.json();document.getElementById('r-msg').textContent=j.ok?'Cuenta creada. Ahora inicia sesión.':(j.error||'Error');}
 async function login(){let r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({correo:document.getElementById('l-correo').value,password:document.getElementById('l-pass').value})});let j=await r.json();if(!j.ok){document.getElementById('l-msg').textContent=j.error;return;}medico=j.medico;localStorage.setItem('centinela_medico',JSON.stringify(medico));document.getElementById('view-auth').classList.add('hidden');document.getElementById('view-dash').classList.remove('hidden');document.getElementById('top-medico').textContent='Dr. '+medico.nombre;loadPacientes();}
 function logout(){medico=null;localStorage.removeItem('centinela_medico');document.getElementById('view-dash').classList.add('hidden');document.getElementById('view-paciente').classList.add('hidden');document.getElementById('view-auth').classList.remove('hidden');}
-async async function loadPacientes(){
+async function loadPacientes(){
   if(!medico) return;
   // 1) Intentar del servidor
   let delServidor=[];
