@@ -308,25 +308,34 @@ async function login(){
 function logout(){ if(confirm('¿Recargar la app? Vas a entrar otra vez sola como Dr. Marcos, sin poner contraseña.')) location.reload(); }
 async function loadPacientes(){
   if(!medico) return;
-  // 1) Intentar del servidor
   let delServidor=[];
   try{let r=await fetch('/api/pacientes?medico_id='+medico.id);let j=await r.json();delServidor=Array.isArray(j)?j:[];}catch(e){}
-  // 2) Lo que hay guardado en el navegador (esto NO se borra aunque Render se duerma)
   let delNavegador=[];
   try{delNavegador=JSON.parse(localStorage.getItem('centinela_pacientes_'+medico.id)||'[]');}catch(e){}
-  if(delServidor.length>0){
-    pacientes=delServidor;
-    // Guardar copia en navegador por si luego el servidor se borra
-    try{localStorage.setItem('centinela_pacientes_'+medico.id, JSON.stringify(pacientes));}catch(e){}
-  } else if(delNavegador.length>0){
-    // El servidor se borró (Render se durmió) pero en el navegador sí están -> mostrar esos y restaurarlos al servidor
-    pacientes=delNavegador;
-    let aviso=document.getElementById('aviso-restaurado');
-    if(aviso) aviso.style.display='block';
-    // Intentar restaurarlos al servidor en silencio
-    for(let p of pacientes){ try{ await fetch('/api/pacientes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)}); }catch(e){} }
-  } else {
-    pacientes=[];
+  // UNIR y QUITAR DUPLICADOS por nombre+edad+ciudad (así 4 vanesas iguales quedan en 1 sola)
+  let todos = [...delServidor, ...delNavegador];
+  let vistos = {};
+  let unicos = [];
+  let duplicadosServidor = [];
+  todos.forEach(p=>{
+    let clave = ((p.nombre||'').toLowerCase().trim() + '|' + (p.edad||'') + '|' + ((p.ciudad||'').toLowerCase().trim()));
+    if(!vistos[clave]){ vistos[clave]=1; unicos.push(p); }
+    else {
+      // Si el duplicado venía del servidor, guardarlo para borrarlo del servidor y que no vuelva
+      if(delServidor.includes(p)) duplicadosServidor.push(p);
+    }
+  });
+  pacientes = unicos;
+  // Borrar del servidor los duplicados que quedaron (para que no vuelvan a aparecer 4)
+  for(let dup of duplicadosServidor){
+    try{ await fetch('/api/pacientes/'+dup.id,{method:'DELETE'}); }catch(e){}
+  }
+  // Guardar la lista limpia en el navegador
+  try{localStorage.setItem('centinela_pacientes_'+medico.id, JSON.stringify(pacientes));}catch(e){}
+  // Si el servidor estaba vacío pero el navegador tenía, restaurar solo los únicos (1 vez, no 4)
+  if(delServidor.length===0 && delNavegador.length>0){
+    let aviso=document.getElementById('aviso-restaurado'); if(aviso) aviso.style.display='block';
+    for(let p of pacientes){ try{ await fetch('/api/pacientes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({medico_id:medico.id,nombre:p.nombre,edad:p.edad,ciudad:p.ciudad,alergias:p.alergias,antecedentes:p.antecedentes})} ); }catch(e){} }
   }
   window._pacientesCache=pacientes;
   renderPacientes();
@@ -353,7 +362,7 @@ function renderPacientes(){ guardarEnNavegador();
  }
  document.getElementById('lista-pacientes').innerHTML=list.map(p=>{let u=urgenciaDe(p);let cls=u==='ROJA'?'roja':u==='AMARILLA'?'amarilla':u==='VERDE'?'verde':'';return '<div class="card"><b>'+p.nombre+'</b> '+(p.edad||'')+' años - '+(p.ciudad||'')+'<br><span class="badge '+cls+'">'+u+'</span> '+(tieneAnormal(p)?'<span class="badge roja">⚠️ IMAGEN ANORMAL - Revisar</span>':'')+'<br><small>Alergias: '+(p.alergias||'Ninguna')+'</small><br><button onclick="abrirPaciente('+p.id+')">ABRIR FICHA - Ver Exámenes / Ultrasonidos / Radiografías</button> <button class="sec" style="background:#fee2e2" onclick="borrarUno('+p.id+',\''+(p.nombre||'').replace(/'/g,'')+'\')">Borrar este paciente</button></div>'}).join('')||'<p>Aún no tienes pacientes. Agrega el primero.</p>';
 }
-async function addPaciente(){try{let d={medico_id:medico.id,nombre:document.getElementById('p-nombre').value.trim(),edad:parseInt(document.getElementById('p-edad').value)||0,ciudad:document.getElementById('p-ciudad').value,alergias:document.getElementById('p-alergias').value,antecedentes:document.getElementById('p-antec').value};if(!d.nombre) return alert('Pon el nombre del paciente');let btn=document.activeElement;let r=await fetch('/api/pacientes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});let j=await r.json();if(!j.ok) return alert('No se pudo guardar: '+(j.error||'error'));document.getElementById('p-nombre').value='';document.getElementById('p-edad').value='';document.getElementById('p-ciudad').value='';document.getElementById('p-alergias').value='';document.getElementById('p-antec').value='';filtro='TODOS';await loadPacientes();alert('Paciente guardado: '+d.nombre+' - Ahora toca ABRIR FICHA para ver Exámenes, Ultrasonidos y Radiografías');}catch(e){alert('Error al guardar: '+e.message);}}
+async function addPaciente(){try{ let nombreNuevo=(document.getElementById('p-nombre').value||'').trim().toLowerCase(); let edadNueva=parseInt(document.getElementById('p-edad').value)||0; if(pacientes.some(p=> (p.nombre||'').toLowerCase().trim()===nombreNuevo && (p.edad||0)===edadNueva )){ alert('Ese paciente ya existe. No lo vuelvo a crear para no duplicarlo. Busca a '+document.getElementById('p-nombre').value+' en la lista.'); return; }let d={medico_id:medico.id,nombre:document.getElementById('p-nombre').value.trim(),edad:parseInt(document.getElementById('p-edad').value)||0,ciudad:document.getElementById('p-ciudad').value,alergias:document.getElementById('p-alergias').value,antecedentes:document.getElementById('p-antec').value};if(!d.nombre) return alert('Pon el nombre del paciente');let btn=document.activeElement;let r=await fetch('/api/pacientes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});let j=await r.json();if(!j.ok) return alert('No se pudo guardar: '+(j.error||'error'));document.getElementById('p-nombre').value='';document.getElementById('p-edad').value='';document.getElementById('p-ciudad').value='';document.getElementById('p-alergias').value='';document.getElementById('p-antec').value='';filtro='TODOS';await loadPacientes();alert('Paciente guardado: '+d.nombre+' - Ahora toca ABRIR FICHA para ver Exámenes, Ultrasonidos y Radiografías');}catch(e){alert('Error al guardar: '+e.message);}}
 async function abrirPaciente(id){pacienteActual=pacientes.find(p=>p.id===id);document.getElementById('view-dash').classList.add('hidden');document.getElementById('view-paciente').classList.remove('hidden');document.getElementById('pac-title').textContent=pacienteActual.nombre;document.getElementById('pac-sub').textContent=pacienteActual.edad+' años - '+(pacienteActual.ciudad||'')+' | Alergias: '+(pacienteActual.alergias||'Ninguna');document.getElementById('pac-alerta').innerHTML=tieneAnormal(pacienteActual)?'<div class="card" style="background:#fee2e2"><b>⚠️ Este paciente tiene un ultrasonido / radiografía con resultado anormal. Revisar interpretación.</b></div>':'';try{let savedImgs=localStorage.getItem('imgs_'+pacienteActual.id);if(savedImgs) imagenes[pacienteActual.id]=JSON.parse(savedImgs);}catch(e){} try{ let r=localStorage.getItem('recetas_'+pacienteActual.id); if(!r){ let nom=pacienteActual.nombre.toLowerCase().trim().replace(/\s+/g,'_'); r=localStorage.getItem('recetas_nombre_'+nom); } if(r) recetasLocal[pacienteActual.id]=JSON.parse(r); }catch(e){} try{ let c=localStorage.getItem('citas_'+pacienteActual.id); if(!c){ let nom=pacienteActual.nombre.toLowerCase().trim().replace(/\s+/g,'_'); c=localStorage.getItem('citas_nombre_'+nom); } if(c) citasLocal[pacienteActual.id]=JSON.parse(c); }catch(e){} try{ let d=localStorage.getItem('diag_'+pacienteActual.id); if(!d){ let nom=pacienteActual.nombre.toLowerCase().trim().replace(/\s+/g,'_'); d=localStorage.getItem('diag_nombre_'+nom); } if(d) diagLocal[pacienteActual.id]=JSON.parse(d); }catch(e){} renderChips();renderImagenes();renderRecetas();renderDiag();renderCitasPac();renderInformes();let h=localStorage.getItem('hist_'+id);if(h) document.getElementById('hist-text').value=h;}
 function irExamenes(){ptab('examenes',document.querySelectorAll('#view-paciente .tab')[2]);document.getElementById('view-paciente').scrollIntoView();} function volver(){document.getElementById('view-paciente').classList.add('hidden');document.getElementById('view-dash').classList.remove('hidden');loadPacientes();}
 function guardarHist(){try{ let v=document.getElementById('hist-text').value; localStorage.setItem('hist_'+pacienteActual.id, v); let nom=pacienteActual.nombre.toLowerCase().trim().replace(/\s+/g,'_'); localStorage.setItem('hist_nombre_'+nom, v); }catch(e){}document.getElementById('hist-msg').textContent='Historial guardado.';}
