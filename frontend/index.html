@@ -129,9 +129,9 @@ function llenarHecesYCultivos(texto){
 <h2>🩺 CENTINELA DIAGNOSTICADOR - Análisis Completo</h2>
 <div class="card" style="background:#eff6ff;border:2px solid #2563eb">
 <h3>📸 LLENAR CON FOTO O PDF</h3>
-<p>Sube la foto del examen. La app la lee y llena sola los espacios. Si un número lo copia mal, lo borras y lo escribes bien.</p>
+<p>Sube la foto de CUALQUIER examen: hemograma, orina, heces, cultivo, química, dengue, embarazo. La app la lee y llena sola los espacios. Si un número lo copia mal, lo borras y lo escribes bien.</p>
 <input type="file" id="ocr-file" accept="image/*,.pdf">
-<button onclick="leerFotoOCR()" style="background:#2563eb">📸 LEER FOTO Y LLENAR SOLA</button> <button onclick="llenarCultivoEjemplo()" style="background:#059669">✅ LLENAR CON ESTE CULTIVO DE ORINA</button>
+<button onclick="leerFotoOCR()" style="background:#2563eb">📸 LEER FOTO Y LLENAR SOLA</button> 
 <p id="ocr-msg"></p>
 <div id="ocr-texto" style="background:#fff;padding:10px;border-radius:8px;max-height:120px;overflow:auto;font-size:12px"></div>
 <p><small>LECTOR DE FOTO - Sube la foto de la hoja impresa del laboratorio, de frente y con buena luz. Todo se queda en tu computadora. Revisa siempre los números.</small></p>
@@ -629,27 +629,4 @@ window.addEventListener('DOMContentLoaded', function(){
   }catch(e){ console.log('auto-login', e); }
 });
 
-function llenarCultivoEjemplo(){
-  let poner=(id,val)=>{let el=document.getElementById(id); if(el) el.value=val;};
-  poner('lab-or-densidad','1.015');
-  poner('lab-or-ph','6.0');
-  poner('lab-or-color','AMARILLO');
-  poner('lab-or-aspecto','LIG. TURBIO');
-  poner('lab-or-leuco-cual','(+)');
-  poner('lab-or-nit','Negativo');
-  poner('lab-or-prot','Negativo');
-  poner('lab-or-gluc','Normal');
-  poner('lab-or-cetonas','Negativo');
-  poner('lab-or-uro','Normal');
-  poner('lab-or-bili','Negativo');
-  poner('lab-or-sang','Negativo');
-  poner('lab-or-hemog','Negativo');
-  poner('lab-or-bacterias','(+)');
-  poner('lab-or-celulas','1-3');
-  poner('lab-or-filamentos','(+)');
-  // Leucocitos microscopio 6-8
-  let elLeu=document.getElementById('lab-leuco'); if(elLeu && !elLeu.value) elLeu.value='7';
-  document.getElementById('ocr-msg').textContent='Listo. Llené con los valores de tu cultivo de orina de la foto. Revisa y toca ANALIZAR.';
-  document.getElementById('ocr-texto').textContent='CULTIVO DE ORINA AUTOMATIZADO - Color AMARILLO, Aspecto LIG. TURBIO, Densidad 1.015, pH 6.0, REACCION ACIDA, Leucocitos (+), Nitritos NEGATIVO, Proteinas NEGATIVO, Glucosa NORMAL, C. Cetónicos NEGATIVO, Urobilinógeno NORMAL, Bilirrubinas NEGATIVO, Sangre NEGATIVO, Hemoglobina NEGATIVO, Células epiteliales PLANAS 1-3 /campo, Bacterias (+), Leucocitos 6-8 /campo, Filamentos Mucosos (+)';
-}
 </script></body></html>
