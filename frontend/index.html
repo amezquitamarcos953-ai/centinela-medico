@@ -35,7 +35,29 @@ function llenarDesdeTexto(texto){
   document.getElementById('ocr-msg').textContent = n===0 ? 'La foto se leyó pero no encontré los números. Revisa el texto abajo y escribe a mano.' : 'Listo. Llené '+n+' valores solos. Revisa cada uno. Si uno está mal, bórralo y escribe el correcto. Luego toca ANALIZAR.';
 }
 
-function borrarTodosValores(){if(!confirm('¿Borrar todos los valores escritos?')) return;document.querySelectorAll('#p-diagnosticador input[type="number"]').forEach(i=>i.value='');document.getElementById('informe-diag').innerHTML='';document.getElementById('ocr-msg').textContent='Valores borrados. Puedes volver a subir la foto o escribirlos a mano.';}
+function borrarTodosValores(){
+  if(!confirm('¿Borrar todos los valores escritos?')) return;
+  document.querySelectorAll('#p-diagnosticador input[type="number"]').forEach(i=>i.value='');
+  document.querySelectorAll('#p-diagnosticador select').forEach(s=>{if(s.id && s.id.startsWith('lab-or')) s.value='';});
+  document.getElementById('informe-diag').innerHTML='';
+  window._ultimoInforme=null; window._ultimoInformeTexto='';
+  let msg=document.getElementById('ocr-msg'); if(msg) msg.textContent='Valores borrados. Ahora también puedes borrar los informes guardados de abajo si quieres.';
+  // Preguntar si también quiere borrar los informes guardados del examen anterior
+  if(confirm('¿También quieres borrar los INFORMES GUARDADOS del examen anterior que salen abajo? Si le das que SÍ, ya no van a salir. Si le das que NO, se quedan guardados.')){borrarTodosInformes(true);}
+}
+function borrarUnInforme(i){
+  let arr=JSON.parse(localStorage.getItem('informes_'+pacienteActual.id)||'[]');
+  if(!confirm('¿Borrar este informe guardado?')) return;
+  arr.splice(i,1);
+  localStorage.setItem('informes_'+pacienteActual.id, JSON.stringify(arr));
+  renderInformes();
+}
+function borrarTodosInformes(silencioso){
+  if(!silencioso && !confirm('¿Borrar TODOS los informes guardados de este paciente?')) return;
+  localStorage.removeItem('informes_'+pacienteActual.id);
+  renderInformes();
+  if(!silencioso) alert('Informes guardados borrados.');
+}
 </script></head>
 <body><div class="top"><b>CENTINELA MÉDICO</b> <span id="top-medico"></span> <span style="float:right" id="top-instance"></span></div>
 <div class="wrap">
@@ -319,7 +341,7 @@ function analizarLaboratorio(){
  window._ultimoInformeTexto=hall.map(h=>h.nombre+': '+h.v+' '+h.unidad+' '+h.e).join(' | ')+' || '+interp.join(' ');
 }
 function guardarInforme(){if(!window._ultimoInforme) return alert('Primero toca ANALIZAR EXAMEN COMPLETO');let arr=JSON.parse(localStorage.getItem('informes_'+pacienteActual.id)||'[]');arr.unshift({fecha:new Date().toISOString(), texto:window._ultimoInformeTexto, html:window._ultimoInforme});localStorage.setItem('informes_'+pacienteActual.id, JSON.stringify(arr));renderInformes();alert('Informe guardado en la ficha.');}
-function renderInformes(){let arr=JSON.parse(localStorage.getItem('informes_'+(pacienteActual?pacienteActual.id:0))||'[]');document.getElementById('list-informes').innerHTML=arr.map((it,i)=>'<div class="card"><b>'+it.fecha+'</b><br>'+it.texto+'<br><button onclick="verInforme('+i+')">Ver informe completo</button></div>').join('')||'<p>Sin informes guardados aún.</p>';}
+function renderInformes(){let arr=JSON.parse(localStorage.getItem('informes_'+(pacienteActual?pacienteActual.id:0))||'[]');let head=arr.length?'<button class="sec" style="background:#fee2e2" onclick="borrarTodosInformes(false)">🗑️ BORRAR TODOS LOS INFORMES GUARDADOS</button><br>':'';document.getElementById('list-informes').innerHTML=head+arr.map((it,i)=>'<div class="card"><b>'+it.fecha+'</b><br>'+it.texto+'<br><button onclick="verInforme('+i+')">Ver informe completo</button> <button class="sec" style="background:#fee2e2" onclick="borrarUnInforme('+i+')">🗑️ Borrar este informe</button></div>').join('')||'<p>Sin informes guardados aún.</p>';}
 function verInforme(i){let arr=JSON.parse(localStorage.getItem('informes_'+pacienteActual.id)||'[]');let w=window.open('');w.document.write(arr[i].html);}
 
 async function leerFotoOCR(){
@@ -357,5 +379,27 @@ function llenarDesdeTexto(texto){
   document.getElementById('ocr-msg').textContent = n===0 ? 'La foto se leyó pero no encontré los números. Revisa el texto abajo y escribe a mano.' : 'Listo. Llené '+n+' valores solos. Revisa cada uno. Si uno está mal, bórralo y escribe el correcto. Luego toca ANALIZAR.';
 }
 
-function borrarTodosValores(){if(!confirm('¿Borrar todos los valores escritos?')) return;document.querySelectorAll('#p-diagnosticador input[type="number"]').forEach(i=>i.value='');document.getElementById('informe-diag').innerHTML='';document.getElementById('ocr-msg').textContent='Valores borrados. Puedes volver a subir la foto o escribirlos a mano.';}
+function borrarTodosValores(){
+  if(!confirm('¿Borrar todos los valores escritos?')) return;
+  document.querySelectorAll('#p-diagnosticador input[type="number"]').forEach(i=>i.value='');
+  document.querySelectorAll('#p-diagnosticador select').forEach(s=>{if(s.id && s.id.startsWith('lab-or')) s.value='';});
+  document.getElementById('informe-diag').innerHTML='';
+  window._ultimoInforme=null; window._ultimoInformeTexto='';
+  let msg=document.getElementById('ocr-msg'); if(msg) msg.textContent='Valores borrados. Ahora también puedes borrar los informes guardados de abajo si quieres.';
+  // Preguntar si también quiere borrar los informes guardados del examen anterior
+  if(confirm('¿También quieres borrar los INFORMES GUARDADOS del examen anterior que salen abajo? Si le das que SÍ, ya no van a salir. Si le das que NO, se quedan guardados.')){borrarTodosInformes(true);}
+}
+function borrarUnInforme(i){
+  let arr=JSON.parse(localStorage.getItem('informes_'+pacienteActual.id)||'[]');
+  if(!confirm('¿Borrar este informe guardado?')) return;
+  arr.splice(i,1);
+  localStorage.setItem('informes_'+pacienteActual.id, JSON.stringify(arr));
+  renderInformes();
+}
+function borrarTodosInformes(silencioso){
+  if(!silencioso && !confirm('¿Borrar TODOS los informes guardados de este paciente?')) return;
+  localStorage.removeItem('informes_'+pacienteActual.id);
+  renderInformes();
+  if(!silencioso) alert('Informes guardados borrados.');
+}
 </script></body></html>
