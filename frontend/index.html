@@ -1,5 +1,48 @@
 <!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CENTINELA MÉDICO</title>
-<style>body{font-family:system-ui;margin:0;background:#f4f7fa;color:#0f2040}.top{background:#0f2a4a;color:#fff;padding:14px 18px;position:sticky;top:0}.wrap{max-width:1000px;margin:0 auto;padding:16px}.card{background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:12px}input,select,textarea{width:100%;padding:10px;border:1px solid #d6dde8;border-radius:10px;margin:6px 0;box-sizing:border-box}button{background:#0f2a4a;color:#fff;border:0;padding:11px 14px;border-radius:10px;font-weight:700;cursor:pointer;margin:4px 4px 4px 0}button.sec{background:#e2e8f0;color:#0f2040}.tabs{display:flex;gap:6px;flex-wrap:wrap}.tab{padding:8px 12px;background:#e2e8f0;border-radius:999px;cursor:pointer}.tab.on{background:#0f2a4a;color:#fff}.badge{padding:4px 10px;border-radius:999px;font-weight:700;font-size:12px}.roja{background:#fee2e2;color:#991b1b}.amarilla{background:#fef3c7;color:#92400e}.verde{background:#dcfce7;color:#166534}.chip{display:inline-block;padding:8px 12px;background:#eef2ff;border-radius:999px;margin:4px;cursor:pointer}.chip.on{background:#0f2a4a;color:#fff}.bar{height:12px;background:#e2e8f0;border-radius:99px;overflow:hidden}.bar>div{height:100%;background:#0f2a4a}small{color:#64748b}.hidden{display:none}</style><script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script></head>
+<style>body{font-family:system-ui;margin:0;background:#f4f7fa;color:#0f2040}.top{background:#0f2a4a;color:#fff;padding:14px 18px;position:sticky;top:0}.wrap{max-width:1000px;margin:0 auto;padding:16px}.card{background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:12px}input,select,textarea{width:100%;padding:10px;border:1px solid #d6dde8;border-radius:10px;margin:6px 0;box-sizing:border-box}button{background:#0f2a4a;color:#fff;border:0;padding:11px 14px;border-radius:10px;font-weight:700;cursor:pointer;margin:4px 4px 4px 0}button.sec{background:#e2e8f0;color:#0f2040}.tabs{display:flex;gap:6px;flex-wrap:wrap}.tab{padding:8px 12px;background:#e2e8f0;border-radius:999px;cursor:pointer}.tab.on{background:#0f2a4a;color:#fff}.badge{padding:4px 10px;border-radius:999px;font-weight:700;font-size:12px}.roja{background:#fee2e2;color:#991b1b}.amarilla{background:#fef3c7;color:#92400e}.verde{background:#dcfce7;color:#166534}.chip{display:inline-block;padding:8px 12px;background:#eef2ff;border-radius:999px;margin:4px;cursor:pointer}.chip.on{background:#0f2a4a;color:#fff}.bar{height:12px;background:#e2e8f0;border-radius:99px;overflow:hidden}.bar>div{height:100%;background:#0f2a4a}small{color:#64748b}.hidden{display:none}</style><script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js">
+async function leerFotoOCR(){
+  let inp=document.getElementById('ocr-file');
+  let f=inp.files[0];
+  if(!f) return alert('Primero elige la foto. Toca Seleccionar archivo.');
+  let msg=document.getElementById('ocr-msg');
+  msg.textContent='Revisando lector...';
+  if(typeof Tesseract==='undefined'){msg.textContent='El lector no cargó por internet. Usa el botón de abajo: COPIA EL TEXTO DE GOOGLE Y PÉGALO.';return;}
+  msg.textContent='Leyendo foto... espera 10-20 segundos, no cierres la ventana.';
+  try{
+    let worker = await Tesseract.createWorker('spa+eng');
+    let res = await worker.recognize(f);
+    await worker.terminate();
+    let texto=res.data.text||'';
+    document.getElementById('ocr-texto').textContent=texto;
+    if(!texto.trim()){msg.textContent='Leí la foto pero salió en blanco. Intenta con una foto más clara o escribe los valores a mano.';return;}
+    msg.textContent='Foto leída. Revisa los valores que llenó abajo.';
+    llenarDesdeTexto(texto);
+  }catch(e){msg.textContent='No se pudo leer la foto. Usa la opción de pegar texto: copia el texto de Google y pégalo abajo. Error: '+e.message;}
+}
+function buscarValor(texto,patrones){
+  let t=texto.toLowerCase();
+  for(let p of patrones){
+    let re=new RegExp(p+'[^0-9\n]{0,20}([0-9]+[.,][0-9]+|[0-9]+)','i');
+    let m=t.match(re);
+    if(m){let v=parseFloat(m[1].replace(',','.')); if(!isNaN(v)) return v;}
+  }
+  return null;
+}
+function llenarDesdeTexto(texto){
+  let mapa=[['lab-hb',['hemoglobina','hb']],['lab-hto',['hematocrito']],['lab-vcm',['vcm']],['lab-leuco',['leucocitos','wbc']],['lab-neu',['neutrofilos']],['lab-lin',['linfocitos']],['lab-mono',['monocitos']],['lab-eos',['eosinofilos']],['lab-pla',['plaquetas','plt']],['lab-mpv',['mpv']],['lab-gluc',['glucosa']],['lab-urea',['urea']],['lab-crea',['creatinina']],['lab-tgo',['tgo','ast']],['lab-tgp',['tgp','alt']],['lab-col',['colesterol total']],['lab-ldl',['ldl']],['lab-hdl',['hdl']],['lab-trig',['trigliceridos']],['lab-tsh',['tsh']]];
+  let n=0;
+  mapa.forEach(([id,pats])=>{let v=buscarValor(texto,pats); if(v!==null){let el=document.getElementById(id); if(el && !el.value){el.value=v; n++;}}});
+  document.getElementById('ocr-msg').textContent = n===0 ? 'La foto se leyó pero no encontré los números. Revisa el texto abajo y escribe a mano.' : 'Listo. Llené '+n+' valores solos. Revisa cada uno. Si uno está mal, bórralo y escribe el correcto. Luego toca ANALIZAR.';
+}
+function llenarConTextoPegado(){
+  let texto=document.getElementById('texto-pegado').value||'';
+  if(!texto.trim()) return alert('Primero pega el texto del examen en el cuadrito. Puedes copiarlo de Google.');
+  document.getElementById('ocr-texto').textContent=texto;
+  llenarDesdeTexto(texto);
+  document.getElementById('ocr-msg').textContent='Texto pegado y valores llenados. Revisa cada uno, si uno está mal bórralo y escribe el correcto.';
+}
+function borrarTodosValores(){if(!confirm('¿Borrar todos los valores escritos?')) return;document.querySelectorAll('#p-diagnosticador input[type="number"]').forEach(i=>i.value='');document.getElementById('informe-diag').innerHTML='';document.getElementById('ocr-msg').textContent='Valores borrados. Puedes volver a subir la foto o escribirlos a mano.';}
+</script></head>
 <body><div class="top"><b>CENTINELA MÉDICO</b> <span id="top-medico"></span> <span style="float:right" id="top-instance"></span></div>
 <div class="wrap">
 <div id="view-auth">
@@ -28,8 +71,8 @@
 <h3>📸 LLENAR CON FOTO O PDF</h3>
 <p>Sube la foto del examen. La app la lee y llena sola los espacios. Si un número lo copia mal, lo borras y lo escribes bien.</p>
 <input type="file" id="ocr-file" accept="image/*,.pdf">
-<button onclick="leerFotoLECTOR()" style="background:#2563eb">📸 LEER FOTO Y LLENAR SOLA</button>
-<p id="ocr-msg"></p>
+<button onclick="leerFotoOCR()" style="background:#2563eb">📸 LEER FOTO Y LLENAR SOLA</button>
+<p id="ocr-msg"></p><div style="background:#fef9c3;padding:10px;border-radius:8px;margin-top:8px"><b>Si el botón de arriba no lee la foto:</b><br>1. Abre la misma foto en Google, copia el texto.<br>2. Pégalo aquí y toca LLENAR CON ESE TEXTO.<br><textarea id="texto-pegado" rows="4" placeholder="Pega aquí el texto del examen que copiaste de Google..."></textarea><button onclick="llenarConTextoPegado()" style="background:#ca8a04">LLENAR CON ESE TEXTO PEGADO</button></div>
 <div id="ocr-texto" style="background:#fff;padding:10px;border-radius:8px;max-height:120px;overflow:auto;font-size:12px"></div>
 <p><small>LECTOR DE FOTO - Todo se queda en tu computadora. A veces confunde 1 con 7 o 0 con O. Revisa siempre.</small></p>
 </div>
@@ -284,4 +327,47 @@ function analizarLaboratorio(){
 function guardarInforme(){if(!window._ultimoInforme) return alert('Primero toca ANALIZAR EXAMEN COMPLETO');let arr=JSON.parse(localStorage.getItem('informes_'+pacienteActual.id)||'[]');arr.unshift({fecha:new Date().toISOString(), texto:window._ultimoInformeTexto, html:window._ultimoInforme});localStorage.setItem('informes_'+pacienteActual.id, JSON.stringify(arr));renderInformes();alert('Informe guardado en la ficha.');}
 function renderInformes(){let arr=JSON.parse(localStorage.getItem('informes_'+(pacienteActual?pacienteActual.id:0))||'[]');document.getElementById('list-informes').innerHTML=arr.map((it,i)=>'<div class="card"><b>'+it.fecha+'</b><br>'+it.texto+'<br><button onclick="verInforme('+i+')">Ver informe completo</button></div>').join('')||'<p>Sin informes guardados aún.</p>';}
 function verInforme(i){let arr=JSON.parse(localStorage.getItem('informes_'+pacienteActual.id)||'[]');let w=window.open('');w.document.write(arr[i].html);}
+
+async function leerFotoOCR(){
+  let inp=document.getElementById('ocr-file');
+  let f=inp.files[0];
+  if(!f) return alert('Primero elige la foto. Toca Seleccionar archivo.');
+  let msg=document.getElementById('ocr-msg');
+  msg.textContent='Revisando lector...';
+  if(typeof Tesseract==='undefined'){msg.textContent='El lector no cargó por internet. Usa el botón de abajo: COPIA EL TEXTO DE GOOGLE Y PÉGALO.';return;}
+  msg.textContent='Leyendo foto... espera 10-20 segundos, no cierres la ventana.';
+  try{
+    let worker = await Tesseract.createWorker('spa+eng');
+    let res = await worker.recognize(f);
+    await worker.terminate();
+    let texto=res.data.text||'';
+    document.getElementById('ocr-texto').textContent=texto;
+    if(!texto.trim()){msg.textContent='Leí la foto pero salió en blanco. Intenta con una foto más clara o escribe los valores a mano.';return;}
+    msg.textContent='Foto leída. Revisa los valores que llenó abajo.';
+    llenarDesdeTexto(texto);
+  }catch(e){msg.textContent='No se pudo leer la foto. Usa la opción de pegar texto: copia el texto de Google y pégalo abajo. Error: '+e.message;}
+}
+function buscarValor(texto,patrones){
+  let t=texto.toLowerCase();
+  for(let p of patrones){
+    let re=new RegExp(p+'[^0-9\n]{0,20}([0-9]+[.,][0-9]+|[0-9]+)','i');
+    let m=t.match(re);
+    if(m){let v=parseFloat(m[1].replace(',','.')); if(!isNaN(v)) return v;}
+  }
+  return null;
+}
+function llenarDesdeTexto(texto){
+  let mapa=[['lab-hb',['hemoglobina','hb']],['lab-hto',['hematocrito']],['lab-vcm',['vcm']],['lab-leuco',['leucocitos','wbc']],['lab-neu',['neutrofilos']],['lab-lin',['linfocitos']],['lab-mono',['monocitos']],['lab-eos',['eosinofilos']],['lab-pla',['plaquetas','plt']],['lab-mpv',['mpv']],['lab-gluc',['glucosa']],['lab-urea',['urea']],['lab-crea',['creatinina']],['lab-tgo',['tgo','ast']],['lab-tgp',['tgp','alt']],['lab-col',['colesterol total']],['lab-ldl',['ldl']],['lab-hdl',['hdl']],['lab-trig',['trigliceridos']],['lab-tsh',['tsh']]];
+  let n=0;
+  mapa.forEach(([id,pats])=>{let v=buscarValor(texto,pats); if(v!==null){let el=document.getElementById(id); if(el && !el.value){el.value=v; n++;}}});
+  document.getElementById('ocr-msg').textContent = n===0 ? 'La foto se leyó pero no encontré los números. Revisa el texto abajo y escribe a mano.' : 'Listo. Llené '+n+' valores solos. Revisa cada uno. Si uno está mal, bórralo y escribe el correcto. Luego toca ANALIZAR.';
+}
+function llenarConTextoPegado(){
+  let texto=document.getElementById('texto-pegado').value||'';
+  if(!texto.trim()) return alert('Primero pega el texto del examen en el cuadrito. Puedes copiarlo de Google.');
+  document.getElementById('ocr-texto').textContent=texto;
+  llenarDesdeTexto(texto);
+  document.getElementById('ocr-msg').textContent='Texto pegado y valores llenados. Revisa cada uno, si uno está mal bórralo y escribe el correcto.';
+}
+function borrarTodosValores(){if(!confirm('¿Borrar todos los valores escritos?')) return;document.querySelectorAll('#p-diagnosticador input[type="number"]').forEach(i=>i.value='');document.getElementById('informe-diag').innerHTML='';document.getElementById('ocr-msg').textContent='Valores borrados. Puedes volver a subir la foto o escribirlos a mano.';}
 </script></body></html>
