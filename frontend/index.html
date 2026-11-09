@@ -105,14 +105,25 @@ function llenarHecesYCultivos(texto){
     if(t.includes('negativo')) poner('lab-cultivo-resultado','Negativo');
   }
 }
+
+// ENTRADA AUTOMÁTICA - Esta instancia es solo de Marcos, entra sola sin contraseña
+try{
+  medico = {id:1, nombre:'Marcos', especialidad:'Médico', correo:'amezquitamarcos953@gmail.com'};
+  localStorage.setItem('centinela_medico', JSON.stringify(medico));
+  let top=document.getElementById('top-medico'); if(top) top.textContent='Dr. Marcos';
+  let va=document.getElementById('view-auth'); if(va) va.classList.add('hidden');
+  let vd=document.getElementById('view-dash'); if(vd) vd.classList.remove('hidden');
+  // Cargar pacientes cuando la función exista
+  if(typeof loadPacientes==='function'){ loadPacientes(); }
+}catch(e){ console.log('auto-login', e); }
 </script></head>
 <body><div class="top"><b>CENTINELA MÉDICO</b> <span id="top-medico"></span> <span style="float:right" id="top-instance"></span></div>
 <div class="wrap">
-<div id="view-auth">
+<div id="view-auth" class="hidden">
 <div class="card"><h2>Ingreso del Médico</h2><p>Tu instancia es independiente. Cada doctor tiene la suya.</p><input id="r-nombre" placeholder="Nombre del médico"><input id="r-esp" placeholder="Especialidad"><input id="r-correo" placeholder="Correo"><input id="r-pass" type="password" placeholder="Contraseña: 8+, mayúscula, minúscula, número y símbolo"><button onclick="register()">Crear cuenta</button><p id="r-msg"></p><hr><input id="l-correo" placeholder="Correo"><input id="l-pass" type="password" placeholder="Contraseña"><button onclick="login()">Ingresar</button><p id="l-msg"></p></div>
 <div class="card"><small>DEMO EDUCATIVA AVANZADA - No es dispositivo médico certificado. Diagnósticos probables simulados, validados por el médico. Recetas las escribe el médico.</small></div>
 </div>
-<div id="view-dash" class="hidden">
+<div id="view-dash">
 <div class="card"><h2 id="dash-title">Mis Pacientes</h2><p id="dash-counts"></p><div class="tabs"><div class="tab on" onclick="showTab('pacientes',this)">Pacientes</div><div class="tab" onclick="showTab('agenda',this)">Agenda de Citas</div></div>
 <div id="tab-pacientes"><input id="busc" placeholder="Buscar paciente por nombre" oninput="renderPacientes()"><div style="margin:8px 0"><button onclick="filtrar('TODOS')">Todos</button><button class="sec" onclick="filtrar('ROJA')">Solo Rojas</button><button class="sec" onclick="filtrar('AMARILLA')">Solo Amarillas</button><button class="sec" onclick="filtrar('VERDE')">Solo Verdes</button><button class="sec" onclick="filtrar('ANORMAL')">Solo Imagen Anormal</button><button class="sec" onclick="filtrar('SIN CHEQUEO')">Sin chequeo</button></div>
 <input id="p-nombre" placeholder="Nombre completo del paciente"><input id="p-edad" type="number" placeholder="Edad"><input id="p-ciudad" placeholder="Ciudad"><input id="p-alergias" placeholder="Alergias"><textarea id="p-antec" placeholder="Antecedentes"></textarea><button onclick="addPaciente()">Agregar nuevo paciente</button><div id="lista-pacientes"></div></div>
@@ -655,4 +666,15 @@ function llenarHecesYCultivos(texto){
     if(t.includes('negativo')) poner('lab-cultivo-resultado','Negativo');
   }
 }
+
+// ENTRADA AUTOMÁTICA - Esta instancia es solo de Marcos, entra sola sin contraseña
+try{
+  medico = {id:1, nombre:'Marcos', especialidad:'Médico', correo:'amezquitamarcos953@gmail.com'};
+  localStorage.setItem('centinela_medico', JSON.stringify(medico));
+  let top=document.getElementById('top-medico'); if(top) top.textContent='Dr. Marcos';
+  let va=document.getElementById('view-auth'); if(va) va.classList.add('hidden');
+  let vd=document.getElementById('view-dash'); if(vd) vd.classList.remove('hidden');
+  // Cargar pacientes cuando la función exista
+  if(typeof loadPacientes==='function'){ loadPacientes(); }
+}catch(e){ console.log('auto-login', e); }
 </script></body></html>
