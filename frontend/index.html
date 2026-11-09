@@ -489,14 +489,14 @@ function analizarLaboratorio(){
 }
 function guardarInforme(){
   if(!window._ultimoInforme) return alert('Primero toca ANALIZAR EXAMEN COMPLETO');
-  guardarInformeAuto();
-  alert('Informe guardado en el historial. Ya no se borra aunque hagas otro análisis.');
+  guardarInformeAuto(true);
+  alert('Informe guardado en el historial. Aunque sea el mismo examen, te lo guardé como otro análisis. Ya no se borra solo.');
 }
-function guardarInformeAuto(){
+function guardarInformeAuto(force){
   if(!window._ultimoInforme || !pacienteActual) return;
   let arr=JSON.parse(localStorage.getItem('informes_'+pacienteActual.id)||'[]');
   // Evitar duplicado si se toca ANALIZAR 2 veces seguidas con los mismos valores: si el último es igual, no duplicar
-  if(arr.length>0 && arr[0].texto===window._ultimoInformeTexto) return;
+  if(!force && arr.length>0 && arr[0].texto===window._ultimoInformeTexto) return;
   arr.unshift({fecha:new Date().toLocaleString('es-GT'), texto:window._ultimoInformeTexto, html:window._ultimoInforme, numero:arr.length+1});
   localStorage.setItem('informes_'+pacienteActual.id, JSON.stringify(arr));
   renderInformes();
